@@ -1,3 +1,4 @@
+import { buildDailyLessonPromptContext } from "../content/daily-lesson-prompts.mjs";
 import { dateInTimeZone, DEFAULT_TIME_ZONE } from "../scheduler/daily-lesson-scheduler.mjs";
 import { StoreError } from "../storage/d1-lesson-store.mjs";
 
@@ -14,16 +15,16 @@ const HELP_TEXT = [
   "사용 가능한 명령:",
   "/today - 오늘 lesson과 현재 초안 미리보기",
   "/status - lesson, revision, approval, publication 상태 확인",
-  "/prompt - Claude 웹에 붙여넣을 초안 작성 프롬프트 생성",
-  "/draft <Markdown> - Claude 웹 결과를 현재 revision으로 저장",
-  "/revise <요청> - Claude 웹에 붙여넣을 수정 프롬프트 생성",
-  "/review - 현재 revision을 검토 상태로 바꾸고 승인 버튼 받기",
+  "/prompt - 오늘 lesson 기반 Claude 웹용 초안 프롬프트 생성",
+  "/draft <Markdown> - Claude 웹 결과를 현재 lesson의 새 revision으로 저장",
+  "/revise <요청> - 현재 draft를 고치기 위한 Claude 웹용 수정 프롬프트 생성",
+  "/review - 최신 revision을 검토 상태로 바꾸고 승인 버튼 받기",
   "/publish-retry - GitHub 게시 실패 상태를 다시 시도",
   "/ask-api <질문> - 이번 질문만 Claude API로 답변",
   "/revise-api <요청> - 이번 수정만 Claude API로 revision 저장",
   "/help 또는 /commands - 이 도움말 보기",
   "",
-  "기본은 manual mode입니다. 일반 문장은 Claude 웹에 붙여넣을 질문 프롬프트로 처리합니다.",
+  "기본은 manual mode입니다. Claude Pro 웹을 쓰려면 /prompt, /revise, /draft, /review만 기억하면 됩니다.",
 ].join("\n");
 
 function requireText(value, field) {
@@ -71,37 +72,48 @@ function approvalKeyboard({ challengeId, token }) {
   };
 }
 
+function lessonPromptContext(lesson) {
+  return buildDailyLessonPromptContext({ curriculumRef: lesson?.curriculumRef });
+}
+
 function buildDraftPrompt({ lessonDate, lesson }) {
+  const context = lessonPromptContext(lesson);
   return [
-    "아래 내용을 Claude 웹에 붙여넣어 초안을 만들어줘.",
+    "아래 내용을 Claude 웹에 그대로 붙여넣어 오늘 블로그 초안을 만들어줘.",
     "",
     "[복사 시작]",
     "너는 LLM, 컴퓨터 아키텍처, DRAM/HBM/CXL, 메모리 병목을 함께 설명하는 한국어 기술 튜터다.",
     "나는 DRAM 회사 엔지니어이고, 공개 정보만 사용해서 시스템 관점의 학습 블로그를 작성하려고 한다.",
     "",
     `오늘 날짜: ${lessonDate}`,
-    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미정"}`,
+    `커리큘럼 ref: ${lesson?.curriculumRef ?? "아직 미정"}`,
     "",
-    "요구사항:",
+    context.text,
+    "",
+    "작성 규칙:",
     "1. 한국어 Markdown 블로그 초안을 작성한다.",
-    "2. 핵심 개념, 시스템 관점, 메모리 traffic 관점, 병목 분석을 포함한다.",
-    "3. 확정된 사실, 해석, 추정을 구분한다.",
-    "4. 공개 정보가 아닌 회사/고객/제품/로드맵/벤치마크 정보는 넣지 않는다.",
-    "5. 마지막에 주요 claim과 공개 출처 후보를 bullet로 정리한다.",
+    "2. 용어 설명에서 끝내지 말고 system behavior와 memory traffic으로 연결한다.",
+    "3. 본문에는 Markdown 계산표 1개와 inline SVG 다이어그램 1개를 반드시 넣는다.",
+    "4. 확정 사실, 해석, 추정을 분리한다.",
+    "5. 공개 정보가 아닌 회사/고객/제품/로드맵/벤치마크 정보는 넣지 않는다.",
+    "6. 마지막에 claim ledger를 `claim | source candidate | fact/interpretation/speculation | confidence` 표로 정리한다.",
     "",
     "출력 형식:",
     "# 제목",
     "## 오늘의 질문",
     "## 핵심 개념",
-    "## 시스템 관점",
-    "## 메모리 병목 관점",
-    "## 내가 확인해야 할 claim",
+    "## 계산과 표",
+    "## 데이터 경로 또는 메모리 병목",
+    "## 다이어그램",
+    "## 확정 사실 / 해석 / 추정",
+    "## Claim ledger",
     "## 다음 질문",
     "[복사 끝]",
   ].join("\n");
 }
 
 function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
+  const context = lessonPromptContext(lesson);
   return [
     "아래 내용을 Claude 웹에 붙여넣어 답변을 받아줘.",
     "",
@@ -111,7 +123,9 @@ function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
     "공개 정보만 사용하고 회사 내부 정보는 추정하거나 포함하지 마라.",
     "",
     `오늘 날짜: ${lessonDate}`,
-    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미정"}`,
+    `커리큘럼 ref: ${lesson?.curriculumRef ?? "아직 미정"}`,
+    "",
+    context.text,
     "",
     "현재 초안:",
     revision?.content ?? "(현재 초안 없음)",
@@ -123,6 +137,7 @@ function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
 }
 
 function buildRevisionPrompt({ instruction, lesson, revision }) {
+  const context = lessonPromptContext(lesson);
   return [
     "아래 내용을 Claude 웹에 붙여넣어 초안을 수정해줘.",
     "",
@@ -131,8 +146,11 @@ function buildRevisionPrompt({ instruction, lesson, revision }) {
     "아래 현재 초안을 수정 요구사항에 맞게 고쳐라.",
     "전체 Markdown 문서만 출력하고, 코드블록으로 감싸지 마라.",
     "공개 정보가 아닌 회사/고객/제품/로드맵/벤치마크 정보는 추가하지 마라.",
+    "수정본에도 Markdown 계산표 1개와 inline SVG 다이어그램 1개가 반드시 남아 있어야 한다.",
     "",
-    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미정"}`,
+    `커리큘럼 ref: ${lesson?.curriculumRef ?? "아직 미정"}`,
+    "",
+    context.text,
     "",
     "수정 요구사항:",
     instruction,
@@ -181,7 +199,7 @@ async function transitionToReviewReady(store, lesson) {
 
 function nextActionFor({ lesson, revision, publication }) {
   if (!lesson) return "08:30 KST 스케줄러가 lesson을 만들었는지 확인하거나 /today를 다시 확인";
-  if (!revision) return "/prompt로 초안 프롬프트를 만들고 Claude 웹 결과를 /draft로 저장";
+  if (!revision) return "/prompt로 Claude 웹용 초안 프롬프트를 만들고 결과를 /draft로 저장";
   if (lesson.state === "draft_ready" || lesson.state === "discussing") return "/review로 승인 버튼 생성";
   if (lesson.state === "review_ready") return "텔레그램 승인 버튼을 눌러 게시 진행";
   if (lesson.state === "approved" || lesson.state === "publish_failed") return "/publish-retry로 GitHub 게시 재시도";

@@ -28,6 +28,7 @@ Working pieces:
 - Public Cloudflare Pages site at `https://memory-systems-daily.pages.dev`.
 - Worker publishing records are configured with `PUBLIC_SITE_URL=https://memory-systems-daily.pages.dev`.
 - Telegram operations commands: `/status`, `/commands`, and `/publish-retry`.
+- Artifact-aware prompt generation: `/prompt` and `/revise` require Markdown tables and inline SVG diagrams for the current lesson.
 
 Still unproven in real use:
 
@@ -125,9 +126,14 @@ Done when:
 
 Goal: make public posts credible and safe for an engineer at a DRAM company.
 
+Status: first artifact automation is implemented at prompt level. `/prompt` and manual `/revise` now include daily lesson context plus required Markdown table and inline SVG diagram instructions. This avoids text-only posts while keeping the manual Claude Pro workflow.
+
 Tasks:
 
 - Enforce source/claim ledger before publication for non-trivial factual claims.
+- Require every generated post to include a Markdown calculation table. Done at prompt level.
+- Require every generated post to include an inline SVG diagram that renders directly in Markdown without separate image upload. Done at prompt level.
+- Add generated image asset upload for external PNG/SVG files when Telegram attachments or local generated images are needed.
 - Add a pre-publication content-policy checklist:
   - no employer confidential information
   - no customer confidential information
@@ -139,7 +145,7 @@ Tasks:
 
 Done when:
 
-- Drafts consistently cite public sources and avoid confidential material.
+- Drafts consistently cite public sources, avoid confidential material, and contain at least one useful table plus one useful diagram.
 
 ## P5: Automation Hardening
 

@@ -70,14 +70,14 @@ describe("lesson command router", () => {
 
   afterEach(() => db.close());
 
-  async function createDraftReadyLesson() {
-    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M05-W12-D1" });
+  async function createDraftReadyLesson(curriculumRef = "M01-W01-D1") {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef });
     const revision = await store.appendRevision({
       lessonId: lesson.id,
       content: "# 오늘 초안\n\nLLM attention과 memory traffic을 연결한다.",
       createdBy: "research-pipeline",
       changeSummary: "Initial research draft",
-      operationKey: "revision:initial",
+      operationKey: `revision:initial:${curriculumRef}`,
     });
     await store.transitionLesson(lesson.id, "researching", 0);
     await store.transitionLesson(lesson.id, "draft_ready", 1);
@@ -109,7 +109,7 @@ describe("lesson command router", () => {
 
     const result = await router.onMessage({ update: messageUpdate(3, "/today"), actor });
     assert.equal(result.action, "today_sent");
-    assert.match(telegram.messages[0].text, /M05-W12-D1/);
+    assert.match(telegram.messages[0].text, /M01-W01-D1/);
     assert.match(telegram.messages[0].text, /LLM attention/);
   });
 
@@ -127,6 +127,23 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /lesson: draft_ready/);
     assert.match(telegram.messages[0].text, /revision: 1/);
     assert.match(telegram.messages[0].text, /다음 행동: \/review/);
+  });
+
+  test("includes daily artifact requirements in manual prompts", async () => {
+    await createDraftReadyLesson("M01-W01-D1");
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    assert.equal((await router.onMessage({ update: messageUpdate(20, "/prompt"), actor })).action, "manual_prompt_sent");
+    const prompt = telegram.messages.at(-1).text;
+    assert.match(prompt, /다음 token 예측을 데이터 경로로 보기/);
+    assert.match(prompt, /Markdown 계산표/);
+    assert.match(prompt, /inline SVG 다이어그램/);
+    assert.match(prompt, /<svg viewBox="0 0 960 420"/);
+    assert.match(prompt, /claim ledger/);
   });
 
   test("answers questions through an injected provider and can create a revision", async () => {
@@ -161,7 +178,7 @@ describe("lesson command router", () => {
     assert.equal(turns[0].providerId, "anthropic");
   });
 
-  test("sends manual prompts and saves pasted Claude drafts", async () => {
+  test("sends manual revision prompts with artifact requirements and saves pasted drafts", async () => {
     const { lesson } = await createDraftReadyLesson();
     const router = createLessonCommandRouter({
       store,
@@ -169,12 +186,11 @@ describe("lesson command router", () => {
       now: () => "2026-07-22T08:30:00+09:00",
     });
 
-    assert.equal((await router.onMessage({ update: messageUpdate(20, "/prompt"), actor })).action, "manual_prompt_sent");
-    assert.match(telegram.messages.at(-1).text, /Claude 웹/);
     assert.equal((await router.onMessage({ update: messageUpdate(21, "KV cache가 뭐야?"), actor })).action, "manual_question_prompt_sent");
     assert.match(telegram.messages.at(-1).text, /질문:/);
     assert.equal((await router.onMessage({ update: messageUpdate(22, "/revise bandwidth 관점 추가"), actor })).action, "manual_revision_prompt_sent");
     assert.match(telegram.messages.at(-1).text, /수정 요구사항:/);
+    assert.match(telegram.messages.at(-1).text, /inline SVG 다이어그램/);
 
     const saved = await router.onMessage({ update: messageUpdate(23, "/draft # Claude 초안\n\n복사한 본문"), actor });
     assert.equal(saved.action, "manual_draft_saved");
@@ -281,9 +297,9 @@ describe("lesson command router", () => {
         id: "publication_retry_1",
         lessonId: retryLesson.id,
         status: "published",
-        filePath: "src/pages/posts/2026-07-22-m05-w12-d1-r1.md",
+        filePath: "src/pages/posts/2026-07-22-m01-w01-d1-r1.md",
         pullRequestUrl: "https://github.test/pr/1",
-        deploymentUrl: "https://memory-systems-daily.pages.dev/posts/2026-07-22-m05-w12-d1-r1/",
+        deploymentUrl: "https://memory-systems-daily.pages.dev/posts/2026-07-22-m01-w01-d1-r1/",
       }),
     });
 
