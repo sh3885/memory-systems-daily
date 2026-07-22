@@ -1,0 +1,22 @@
+{
+  "name": "memory-systems-daily",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "check": "astro check",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "visual": "node scripts/visual-check.mjs"
+  },
+  "dependencies": {
+    "@astrojs/check": "latest",
+    "astro": "latest",
+    "@lucide/astro": "latest",
+    "typescript": "latest"
+  },
+  "devDependencies": {
+    "playwright-core": "latest"
+  }
+}

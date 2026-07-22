@@ -1,0 +1,208 @@
+---
+import {
+  Bot,
+  Check,
+  Clock3,
+  FileCheck,
+  GitCommitHorizontal,
+  MessageCircle,
+  RadioTower,
+  Send,
+  ShieldCheck,
+} from "@lucide/astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const steps = [
+  ["08:30", "오늘의 학습 카드", "Curriculum Agent가 선수 개념과 진도를 확인하고 주제를 선택합니다.", Clock3],
+  ["08:31", "근거와 초안 생성", "Research Agent가 공개 논문·공식 문서로 주장 원장을 만들고 초안을 작성합니다.", Bot],
+  ["사용자", "Telegram 질의응답", "이해되지 않는 부분을 질문하고 예제, 비유, 수식, 퀴즈로 다시 학습합니다.", MessageCircle],
+  ["수정", "대화 반영", "Editor Agent가 질문과 이해 내용을 반영하고 변경점을 요약합니다.", FileCheck],
+  ["검토", "기술·기밀 검사", "Review Agent가 출처, 단위, 반례, 저작권, 공개 가능성을 확인합니다.", ShieldCheck],
+  ["승인", "자동 배포", "승인 버튼이 눌리면 Markdown을 commit하고 정적 블로그를 배포합니다.", GitCommitHorizontal],
+];
+---
+
+<BaseLayout title="자동화 | Memory Systems Daily">
+  <header class="automation-head">
+    <div class="shell automation-head-grid">
+      <div>
+        <p class="eyebrow">HUMAN-IN-THE-LOOP</p>
+        <h1>매일 08:30,<br />배울 것이 도착합니다</h1>
+      </div>
+      <div class="status-box">
+        <span class="status-dot"></span>
+        <div><small>DAILY SCHEDULE</small><strong>08:30 Asia/Seoul</strong></div>
+        <Check size={19} />
+      </div>
+    </div>
+  </header>
+
+  <section class="workflow">
+    <div class="shell">
+      <div class="section-title">
+        <p class="eyebrow">DAILY WORKFLOW</p>
+        <h2>질문과 수정이 끝나야 발행됩니다</h2>
+        <p>AI가 알아서 공개하는 구조가 아닙니다. 조사와 작성은 자동화하고, 이해와 최종 승인은 사람이 맡습니다.</p>
+      </div>
+      <div class="steps">
+        {steps.map(([time, title, detail, Icon], index) => (
+          <article class="step">
+            <div class="step-index">{String(index + 1).padStart(2, "0")}</div>
+            <div class="step-icon"><Icon size={21} /></div>
+            <div class="step-copy"><small>{time}</small><h3>{title}</h3><p>{detail}</p></div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="approval-band">
+    <div class="shell approval-grid">
+      <div class="approval-copy">
+        <p class="eyebrow">PUBLISHING GATE</p>
+        <h2>승인 버튼은 최종 배포 명령입니다</h2>
+        <p>등록된 Telegram 사용자, 검토 완료 상태, 승인 callback 세 조건이 모두 맞아야 Git commit과 배포가 시작됩니다.</p>
+        <div class="gate-list">
+          <span><Check size={16} />Telegram chat ID 검증</span>
+          <span><Check size={16} />주장 원장과 출처 통과</span>
+          <span><Check size={16} />회사 기밀·저작권 확인</span>
+          <span><Check size={16} />사용자의 명시적 발행 승인</span>
+        </div>
+      </div>
+
+      <div class="phone">
+        <div class="phone-top"><span>08:30</span><strong>Memory Study Bot</strong><RadioTower size={17} /></div>
+        <div class="phone-body">
+          <div class="telegram-bubble">
+            <small>최종 초안이 준비되었습니다</small>
+            <strong>LLM은 어떻게 다음 Token을 예측하는가?</strong>
+            <p>질문 3개를 반영했고, logit과 probability 예제를 추가했습니다. 기술 검토와 공개 자료 검사를 통과했습니다.</p>
+          </div>
+          <div class="review-summary">
+            <span><FileCheck size={16} />4개 출처</span>
+            <span><ShieldCheck size={16} />위험 0건</span>
+            <span><MessageCircle size={16} />수정 3건</span>
+          </div>
+          <button class="publish"><Send size={17} />발행 승인 및 배포</button>
+          <button class="hold">보류하고 내일 다시 보기</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stack-band">
+    <div class="shell">
+      <div class="section-title">
+        <p class="eyebrow">IMPLEMENTATION STACK</p>
+        <h2>단순하고 추적 가능한 구성</h2>
+      </div>
+      <div class="stack-grid">
+        <div><small>SCHEDULE + WEBHOOK</small><strong>Cloudflare Workers</strong><p>08:30 KST 일정과 Telegram callback 처리</p></div>
+        <div><small>STATE</small><strong>D1 Database</strong><p>진도, 질문, 주장, 승인 상태 저장</p></div>
+        <div><small>AI WORKFLOW</small><strong>Responses / Agents</strong><p>연구, 튜터, 편집, 리뷰 에이전트</p></div>
+        <div><small>CONTENT</small><strong>GitHub + Astro</strong><p>Markdown 버전 관리와 정적 사이트 배포</p></div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .automation-head {
+    padding: 94px 0 74px;
+    border-bottom: 1px solid var(--line);
+    background: var(--ink);
+    color: white;
+  }
+
+  .automation-head .eyebrow { color: #69d0ad; }
+  .automation-head-grid { display: grid; grid-template-columns: 1fr 390px; gap: 70px; align-items: end; }
+  .automation-head h1 { margin: 0; font-size: clamp(3rem, 7vw, 6rem); }
+
+  .status-box {
+    display: grid;
+    grid-template-columns: 14px 1fr 24px;
+    gap: 12px;
+    align-items: center;
+    padding: 20px;
+    border: 1px solid #4a5550;
+    border-radius: 6px;
+    background: #232d29;
+  }
+
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #69d0ad; box-shadow: 0 0 0 5px rgba(105, 208, 173, 0.12); }
+  .status-box div { display: grid; }
+  .status-box small { color: #99a7a1; font-size: 0.7rem; font-weight: 800; }
+
+  .workflow, .approval-band, .stack-band { padding: 88px 0; }
+  .steps { border-top: 1px solid var(--ink); }
+
+  .step {
+    display: grid;
+    grid-template-columns: 60px 48px 1fr;
+    gap: 20px;
+    align-items: center;
+    min-height: 116px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .step-index { color: var(--muted); font-size: 0.76rem; font-weight: 850; }
+  .step-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 5px; background: white; color: var(--green); }
+  .step-copy { display: grid; grid-template-columns: 100px 260px 1fr; gap: 20px; align-items: center; }
+  .step-copy small { color: var(--green); font-weight: 850; }
+  .step-copy h3, .step-copy p { margin: 0; }
+  .step-copy h3 { font-size: 1.08rem; }
+  .step-copy p { color: var(--muted); font-size: 0.85rem; }
+
+  .approval-band { border-block: 1px solid var(--line); background: white; }
+  .approval-grid { display: grid; grid-template-columns: 1fr 430px; gap: 100px; align-items: center; }
+  .approval-copy h2 { max-width: 650px; font-size: clamp(2rem, 4vw, 3.6rem); }
+  .approval-copy > p { max-width: 650px; color: var(--muted); }
+  .gate-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 28px; }
+  .gate-list span { display: flex; gap: 8px; align-items: center; font-size: 0.82rem; font-weight: 750; }
+  .gate-list svg { color: var(--green); }
+
+  .phone { overflow: hidden; border: 1px solid #cbd4d8; border-radius: 8px; background: #e6edef; box-shadow: 0 18px 50px rgba(29, 48, 61, 0.13); }
+  .phone-top { display: grid; grid-template-columns: 60px 1fr 24px; align-items: center; padding: 14px 16px; background: white; font-size: 0.77rem; }
+  .phone-top strong { text-align: center; }
+  .phone-top svg { color: var(--blue); }
+  .phone-body { padding: 18px; background-color: #dfe7eb; background-image: radial-gradient(#c6d2d8 0.8px, transparent 0.8px); background-size: 14px 14px; }
+  .telegram-bubble { padding: 15px; border-radius: 7px; background: white; box-shadow: 0 1px 2px rgba(35, 56, 70, 0.09); }
+  .telegram-bubble small, .telegram-bubble strong { display: block; margin-bottom: 7px; }
+  .telegram-bubble small { color: var(--blue); font-weight: 850; }
+  .telegram-bubble p { margin: 0; color: var(--muted); font-size: 0.8rem; }
+  .review-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0; }
+  .review-summary span { display: flex; min-height: 42px; align-items: center; justify-content: center; gap: 5px; border-radius: 5px; background: white; color: var(--muted); font-size: 0.68rem; font-weight: 750; }
+  .publish, .hold { width: 100%; min-height: 44px; border: 0; border-radius: 5px; font: inherit; font-size: 0.82rem; font-weight: 850; }
+  .publish { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--green); color: white; }
+  .hold { margin-top: 7px; border: 1px solid #c9d1d5; background: white; color: var(--muted); }
+
+  .stack-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .stack-grid > div { min-height: 170px; padding: 22px; border-right: 1px solid var(--line); background: white; }
+  .stack-grid > div:last-child { border: 0; }
+  .stack-grid small, .stack-grid strong { display: block; }
+  .stack-grid small { color: var(--green); font-size: 0.67rem; font-weight: 850; }
+  .stack-grid strong { margin: 22px 0 5px; }
+  .stack-grid p { color: var(--muted); font-size: 0.77rem; }
+
+  @media (max-width: 900px) {
+    .automation-head-grid, .approval-grid { grid-template-columns: 1fr; gap: 38px; }
+    .status-box { max-width: 430px; }
+    .step-copy { grid-template-columns: 90px 220px 1fr; }
+    .phone { width: min(100%, 480px); }
+    .stack-grid { grid-template-columns: repeat(2, 1fr); }
+    .stack-grid > div:nth-child(2) { border-right: 0; }
+    .stack-grid > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  }
+
+  @media (max-width: 650px) {
+    .automation-head { padding: 64px 0 52px; }
+    .workflow, .approval-band, .stack-band { padding: 64px 0; }
+    .step { grid-template-columns: 38px 1fr; gap: 12px; padding: 18px 0; align-items: start; }
+    .step-icon { grid-column: 1; width: 36px; height: 36px; }
+    .step-index { display: none; }
+    .step-copy { grid-column: 2; grid-row: 1; grid-template-columns: 1fr; gap: 3px; }
+    .gate-list, .stack-grid { grid-template-columns: 1fr; }
+    .stack-grid > div { border-right: 0; border-bottom: 1px solid var(--line); }
+    .stack-grid > div:last-child { border-bottom: 0; }
+  }
+</style>

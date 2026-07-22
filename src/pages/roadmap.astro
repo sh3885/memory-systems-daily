@@ -1,0 +1,250 @@
+---
+import { ArrowRight, Beaker, CircleCheckBig } from "@lucide/astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { curriculum, weeklyRhythm } from "../data/curriculum";
+---
+
+<BaseLayout title="전체 과정 | Memory Systems Daily">
+  <header class="page-head">
+    <div class="shell page-head-inner">
+      <div>
+        <p class="eyebrow">36-WEEK ROADMAP</p>
+        <h1>워크로드에서<br />메모리 제품까지</h1>
+      </div>
+      <p>LLM, 서버, GPU, 네트워크, 스토리지가 만드는 데이터 이동을 이해하고 DRAM과 차세대 메모리의 요구사항으로 연결하는 전체 과정입니다.</p>
+    </div>
+  </header>
+
+  <section class="overview">
+    <div class="shell overview-grid">
+      <div><strong>36주</strong><span>기초부터 종합 설계까지</span></div>
+      <div><strong>252개</strong><span>매일 발행하는 학습 노트</span></div>
+      <div><strong>12개</strong><span>핵심 모듈과 실습</span></div>
+      <div><strong>1개</strong><span>최종 시스템 설계 프로젝트</span></div>
+    </div>
+  </section>
+
+  <section class="curriculum-section">
+    <div class="shell">
+      <div class="section-title">
+        <p class="eyebrow">FULL CURRICULUM</p>
+        <h2>전체 학습 과정</h2>
+        <p>각 모듈은 핵심 질문, 측정 가능한 실습, 공개 포스팅 산출물로 끝납니다.</p>
+      </div>
+      <div class="curriculum-list">
+        {curriculum.map((item) => (
+          <article class:list={["module", item.color]}>
+            <div class="module-id"><span>{item.index}</span><small>{item.weeks}</small></div>
+            <div class="module-main">
+              <h3>{item.title}</h3>
+              <p class="question">{item.question}</p>
+              <div class="topics">
+                {item.topics.map((topic) => <span>{topic}</span>)}
+              </div>
+            </div>
+            <div class="module-output">
+              <div><Beaker size={17} /><p><small>실습</small>{item.lab}</p></div>
+              <div><CircleCheckBig size={17} /><p><small>완료 기준</small>{item.outcome}</p></div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="daily-section">
+    <div class="shell daily-grid">
+      <div class="section-title">
+        <p class="eyebrow">DAILY OPERATING SYSTEM</p>
+        <h2>한 주를 반복 가능한 학습 시스템으로 만듭니다</h2>
+        <p>매일 포스팅하되 개념, 코드, 인터페이스, 실험을 번갈아 배치해 얕은 요약만 쌓이지 않도록 합니다.</p>
+        <a class="button" href="/automation">자동화 흐름 보기 <ArrowRight size={18} /></a>
+      </div>
+      <div class="rhythm-list">
+        {weeklyRhythm.map(([day, title, detail], index) => (
+          <div><span>{index + 1}</span><strong>{day} · {title}</strong><p>{detail}</p></div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-head {
+    padding: 90px 0 70px;
+    border-bottom: 1px solid var(--line);
+    background: white;
+  }
+
+  .page-head-inner {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 90px;
+    align-items: end;
+  }
+
+  .page-head h1 {
+    margin: 0;
+    font-size: clamp(3rem, 7vw, 6rem);
+  }
+
+  .page-head-inner > p {
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 1.08rem;
+  }
+
+  .overview {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .overview-grid > div {
+    display: grid;
+    gap: 3px;
+    padding: 26px 20px;
+    border-right: 1px solid var(--line);
+  }
+
+  .overview-grid > div:first-child { border-left: 1px solid var(--line); }
+  .overview-grid strong { font-size: 1.55rem; }
+  .overview-grid span { color: var(--muted); font-size: 0.78rem; }
+
+  .curriculum-section,
+  .daily-section {
+    padding: 88px 0;
+  }
+
+  .curriculum-list {
+    border-top: 1px solid var(--ink);
+  }
+
+  .module {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1.05fr) minmax(300px, 0.95fr);
+    gap: 32px;
+    padding: 30px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .module-id {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+  }
+
+  .module-id span {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    border-radius: 5px;
+    font-size: 0.88rem;
+    font-weight: 850;
+  }
+
+  .green .module-id span { background: var(--green-soft); color: var(--green); }
+  .blue .module-id span { background: var(--blue-soft); color: var(--blue); }
+  .amber .module-id span { background: var(--amber-soft); color: var(--amber); }
+  .red .module-id span { background: var(--red-soft); color: var(--red); }
+
+  .module-id small { color: var(--muted); }
+  .module h3 { margin-bottom: 7px; font-size: 1.35rem; }
+  .question { color: var(--muted); font-size: 0.9rem; }
+
+  .topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .topics span {
+    padding: 4px 7px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: white;
+    font-size: 0.73rem;
+    font-weight: 700;
+  }
+
+  .module-output {
+    display: grid;
+    gap: 14px;
+  }
+
+  .module-output > div {
+    display: flex;
+    gap: 10px;
+    color: var(--muted);
+  }
+
+  .module-output svg { flex: 0 0 auto; margin-top: 3px; color: var(--ink); }
+  .module-output p { margin: 0; font-size: 0.8rem; }
+  .module-output small { display: block; margin-bottom: 2px; color: var(--ink); font-weight: 800; }
+
+  .daily-section {
+    border-top: 1px solid var(--line);
+    background: white;
+  }
+
+  .daily-grid {
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 90px;
+  }
+
+  .rhythm-list {
+    border-top: 1px solid var(--ink);
+  }
+
+  .rhythm-list > div {
+    display: grid;
+    grid-template-columns: 34px 180px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .rhythm-list span { color: var(--green); font-size: 0.75rem; font-weight: 850; }
+  .rhythm-list strong { font-size: 0.82rem; }
+  .rhythm-list p { margin: 0; color: var(--muted); font-size: 0.76rem; }
+
+  @media (max-width: 860px) {
+    .page-head-inner,
+    .daily-grid {
+      grid-template-columns: 1fr;
+      gap: 34px;
+    }
+
+    .module {
+      grid-template-columns: 80px 1fr;
+    }
+
+    .module-output {
+      grid-column: 2;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .page-head { padding: 62px 0 48px; }
+    .overview-grid { grid-template-columns: repeat(2, 1fr); }
+    .overview-grid > div:nth-child(3) { border-left: 1px solid var(--line); }
+    .curriculum-section, .daily-section { padding: 64px 0; }
+
+    .module {
+      grid-template-columns: 52px 1fr;
+      gap: 14px;
+      padding: 24px 0;
+    }
+
+    .module-id span { width: 42px; height: 42px; }
+    .module-output { grid-column: 1 / -1; padding-left: 66px; }
+    .rhythm-list > div { grid-template-columns: 28px 1fr; }
+    .rhythm-list p { grid-column: 2; }
+  }
+</style>

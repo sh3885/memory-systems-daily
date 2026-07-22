@@ -1,0 +1,154 @@
+---
+import { BookOpenText, RadioTower, Route } from "@lucide/astro";
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "LLM과 메모리 시스템을 매일 공부하고 기록하는 기술 블로그" } = Astro.props;
+const path = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/png" href="/images/memory-systems-hero.png" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="/" aria-label="Memory Systems Daily 홈">
+          <span class="brand-mark">MS</span>
+          <span>Memory Systems Daily</span>
+        </a>
+        <nav aria-label="주요 메뉴">
+          <a class:list={[{ active: path === "/" }]} href="/"><BookOpenText size={17} />오늘</a>
+          <a class:list={[{ active: path.startsWith("/roadmap") }]} href="/roadmap"><Route size={17} />전체 과정</a>
+          <a class:list={[{ active: path.startsWith("/automation") }]} href="/automation"><RadioTower size={17} />자동화</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+    <footer>
+      <div class="shell footer-inner">
+        <div>
+          <strong>Memory Systems Daily</strong>
+          <p>워크로드에서 메모리 제품 요구사항까지.</p>
+        </div>
+        <p class="footer-note">공개 자료와 재현 가능한 실험만 사용합니다.</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header {
+    position: sticky;
+    z-index: 10;
+    top: 0;
+    border-bottom: 1px solid var(--line);
+    background: rgba(247, 248, 244, 0.95);
+    backdrop-filter: blur(14px);
+  }
+
+  .header-inner {
+    display: flex;
+    min-height: 66px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+    font-weight: 850;
+  }
+
+  .brand-mark {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border-radius: 5px;
+    background: var(--ink);
+    color: white;
+    font-size: 0.72rem;
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  nav a {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    border-radius: 5px;
+    color: var(--muted);
+    font-size: 0.86rem;
+    font-weight: 750;
+  }
+
+  nav a:hover,
+  nav a.active {
+    background: white;
+    color: var(--ink);
+  }
+
+  footer {
+    padding: 48px 0;
+    border-top: 1px solid var(--line);
+    background: white;
+  }
+
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+  }
+
+  footer p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+
+  @media (max-width: 680px) {
+    .header-inner {
+      min-height: 58px;
+    }
+
+    .brand > span:last-child {
+      display: none;
+    }
+
+    nav a {
+      gap: 5px;
+      padding: 6px 8px;
+      font-size: 0.76rem;
+    }
+
+    .footer-inner {
+      display: block;
+    }
+
+    .footer-note {
+      margin-top: 22px;
+    }
+  }
+</style>

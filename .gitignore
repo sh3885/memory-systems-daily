@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.astro/
+.tools/
+artifacts/
+astro-dev.log
+astro-dev-error.log
+.env
+.env.*
+!.env.example
