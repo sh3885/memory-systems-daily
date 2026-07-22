@@ -96,6 +96,7 @@ describe("Worker Telegram AI fallback flow", () => {
     db = new NodeD1Database([
       readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
       readFileSync(join(here, "../storage/migrations/0003_conversation_ledger.sql"), "utf8"),
+      readFileSync(join(here, "../storage/migrations/0004_conversation_provider_metadata.sql"), "utf8"),
     ].join("\n"));
     requests = [];
     globalThis.fetch = async (url, init) => {
@@ -170,5 +171,9 @@ describe("Worker Telegram AI fallback flow", () => {
     assert.equal(requests.some((requestLog) => requestLog.url.endsWith("/responses")), true);
     const telegram = requests.find((requestLog) => requestLog.url.includes("/sendMessage"));
     assert.match(telegram.body.text, /OpenAI로 fallback/);
+    const turn = db.database.prepare("SELECT provider_id, provider_model, provider_attempts_json FROM conversation_turns").get();
+    assert.equal(turn.provider_id, "openai");
+    assert.equal(turn.provider_model, "gpt-5.6");
+    assert.equal(JSON.parse(turn.provider_attempts_json)[0].providerId, "anthropic");
   });
 });

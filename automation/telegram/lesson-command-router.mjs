@@ -184,6 +184,7 @@ export function createLessonCommandRouter({
         question,
         answer,
         status: updatedRevision ? "revised" : "answered",
+        provider: response.provider,
         operationKey: `telegram:conversation:${update.update_id}`,
       });
     }

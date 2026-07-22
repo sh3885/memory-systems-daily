@@ -41,7 +41,7 @@ Telegram command router는 `/today`, `/revise`, `/review`, `/help`와 일반 질
 
 OpenAI provider는 Responses API를 직접 호출한다. 기본 모델은 `AI_MODEL`로 지정하며 `.env.example`은 현재 OpenAI 모델 가이드에 맞춰 `gpt-5.6`을 기본 예시로 둔다. 최신/외부 자료가 필요한 질문은 Responses API의 `web_search` tool을 켤 수 있다. Telegram 질문과 답변은 `conversation_turns`에 append-only로 저장하고, 답변이 revision으로 반영된 경우 적용된 revision ID를 함께 기록한다.
 
-Claude provider는 Anthropic Messages API를 직접 호출한다. `ANTHROPIC_API_KEY`가 있으면 Telegram Q&A와 `/revise`는 Claude provider를 먼저 시도한다. Claude가 `rate_limit`, `quota`, `overloaded`, `timeout`, `context_length`, `transient` 계열로 실패하면 provider fallback router가 OpenAI provider를 다음 순서로 호출한다. 잘못된 입력처럼 fatal한 오류는 자동 fallback하지 않는다.
+Claude provider는 Anthropic Messages API를 직접 호출한다. `ANTHROPIC_API_KEY`가 있으면 Telegram Q&A와 `/revise`는 Claude provider를 먼저 시도한다. Claude가 `rate_limit`, `quota`, `overloaded`, `timeout`, `context_length`, `transient` 계열로 실패하면 provider fallback router가 OpenAI provider를 다음 순서로 호출한다. 잘못된 입력처럼 fatal한 오류는 자동 fallback하지 않는다. Conversation ledger는 최종 응답 provider/model과 실패한 fallback attempts를 저장하되 API key나 secret은 저장하지 않는다.
 
 ## 목표 구조
 

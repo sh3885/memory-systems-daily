@@ -15,6 +15,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const schema = [
   readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0003_conversation_ledger.sql"), "utf8"),
+  readFileSync(join(here, "../storage/migrations/0004_conversation_provider_metadata.sql"), "utf8"),
 ].join("\n");
 
 const actor = { userId: "1234", chatId: "5678", chatType: "private" };
@@ -119,6 +120,11 @@ describe("lesson command router", () => {
         answer: `답변: ${question}`,
         revisedContent: `${revision.content}\n\n## Q&A 반영\n\n${question}`,
         changeSummary: "Added Q&A clarification",
+        provider: {
+          id: "openai",
+          model: "gpt-5.6",
+          attempts: [{ providerId: "anthropic", model: "claude-sonnet-5", reason: "rate_limit", code: "ANTHROPIC_HTTP_ERROR", status: 429 }],
+        },
       }),
     });
 
@@ -132,6 +138,8 @@ describe("lesson command router", () => {
     assert.equal(turns.length, 1);
     assert.equal(turns[0].status, "revised");
     assert.equal(turns[0].appliedRevisionId, updated.currentRevisionId);
+    assert.equal(turns[0].providerId, "openai");
+    assert.equal(turns[0].providerAttempts[0].providerId, "anthropic");
   });
 
   test("creates a revision from /revise instructions", async () => {

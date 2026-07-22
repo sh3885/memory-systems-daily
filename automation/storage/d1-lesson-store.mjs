@@ -156,6 +156,7 @@ function mapClaim(row) {
 
 function mapConversationTurn(row) {
   if (!row) return null;
+  const providerAttemptsJson = row.provider_attempts_json ?? "[]";
   return {
     id: row.id,
     lessonId: row.lesson_id,
@@ -167,6 +168,9 @@ function mapConversationTurn(row) {
     question: row.question,
     answer: row.answer,
     status: row.status,
+    providerId: row.provider_id ?? null,
+    providerModel: row.provider_model ?? null,
+    providerAttempts: JSON.parse(providerAttemptsJson),
     operationKey: row.operation_key,
     createdAt: row.created_at,
   };
@@ -213,8 +217,31 @@ function conversationOperationMatches(turn, expected) {
     turn.telegramChatId === expected.telegramChatId &&
     turn.question === expected.question &&
     turn.answer === expected.answer &&
-    turn.status === expected.status
+    turn.status === expected.status &&
+    turn.providerId === expected.providerId &&
+    turn.providerModel === expected.providerModel &&
+    JSON.stringify(turn.providerAttempts) === expected.providerAttemptsJson
   );
+}
+
+function normalizeProviderMetadata(provider) {
+  if (!provider) {
+    return { providerId: null, providerModel: null, providerAttemptsJson: "[]" };
+  }
+  const providerId = String(provider.id ?? "").trim() || null;
+  const providerModel = String(provider.model ?? "").trim() || null;
+  const attempts = Array.isArray(provider.attempts) ? provider.attempts.map((attempt) => ({
+    providerId: String(attempt.providerId ?? "").trim() || null,
+    model: String(attempt.model ?? "").trim() || null,
+    reason: String(attempt.reason ?? "").trim() || null,
+    code: String(attempt.code ?? "").trim() || null,
+    status: attempt.status === undefined || attempt.status === null ? null : Number(attempt.status),
+  })) : [];
+  return {
+    providerId,
+    providerModel,
+    providerAttemptsJson: JSON.stringify(attempts),
+  };
 }
 
 async function allRows(statement) {
@@ -632,6 +659,7 @@ export class D1LessonStore {
     question,
     answer,
     status = "answered",
+    provider = null,
     operationKey,
   }) {
     const key = requireText(operationKey, "operationKey");
@@ -645,6 +673,7 @@ export class D1LessonStore {
     if (!["answered", "revised", "failed"].includes(normalizedStatus)) {
       throw new StoreError("INVALID_INPUT", "status is not allowed", { field: "status", status: normalizedStatus });
     }
+    const providerMetadata = normalizeProviderMetadata(provider);
     const expectedOperation = {
       lessonId,
       revisionId,
@@ -655,6 +684,7 @@ export class D1LessonStore {
       question: requireText(question, "question"),
       answer: requireText(answer, "answer"),
       status: normalizedStatus,
+      ...providerMetadata,
     };
     const existing = await this.findConversationTurnByOperationKey(key);
     if (existing) {
@@ -672,8 +702,9 @@ export class D1LessonStore {
         INSERT INTO conversation_turns (
           id, lesson_id, revision_id, applied_revision_id,
           telegram_update_id, telegram_user_id, telegram_chat_id,
-          question, answer, status, operation_key, created_at
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+          question, answer, status, provider_id, provider_model,
+          provider_attempts_json, operation_key, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
       `).bind(
         id,
         lessonId,
@@ -685,6 +716,9 @@ export class D1LessonStore {
         expectedOperation.question,
         expectedOperation.answer,
         expectedOperation.status,
+        expectedOperation.providerId,
+        expectedOperation.providerModel,
+        expectedOperation.providerAttemptsJson,
         key,
         this.now(),
       ).run();

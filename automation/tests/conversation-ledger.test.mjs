@@ -10,6 +10,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const schema = [
   readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0003_conversation_ledger.sql"), "utf8"),
+  readFileSync(join(here, "../storage/migrations/0004_conversation_provider_metadata.sql"), "utf8"),
 ].join("\n");
 
 describe("conversation ledger store", () => {
@@ -51,11 +52,25 @@ describe("conversation ledger store", () => {
       question: "KV cache가 뭐야?",
       answer: "KV cache는 decode 중 재사용되는 key/value tensor야.",
       status: "answered",
+      provider: {
+        id: "openai",
+        model: "gpt-5.6",
+        attempts: [{ providerId: "anthropic", model: "claude-sonnet-5", reason: "rate_limit", code: "ANTHROPIC_HTTP_ERROR", status: 429 }],
+      },
       operationKey: "telegram:conversation:10",
     };
     const turn = await store.recordConversationTurn(input);
     const replay = await store.recordConversationTurn(input);
     assert.equal(replay.id, turn.id);
+    assert.equal(turn.providerId, "openai");
+    assert.equal(turn.providerModel, "gpt-5.6");
+    assert.deepEqual(turn.providerAttempts, [{
+      providerId: "anthropic",
+      model: "claude-sonnet-5",
+      reason: "rate_limit",
+      code: "ANTHROPIC_HTTP_ERROR",
+      status: 429,
+    }]);
     assert.equal((await store.getConversationTurnsForLesson(lesson.id)).length, 1);
     assert.throws(() => db.exec(`UPDATE conversation_turns SET answer = 'changed' WHERE id = '${turn.id}'`), /immutable/);
     assert.throws(() => db.exec(`DELETE FROM conversation_turns WHERE id = '${turn.id}'`), /immutable/);
@@ -72,6 +87,7 @@ describe("conversation ledger store", () => {
       question: "Q1",
       answer: "A1",
       status: "answered",
+      provider: { id: "anthropic", model: "claude-sonnet-5", attempts: [] },
       operationKey: "telegram:conversation:10",
     });
 
@@ -85,6 +101,7 @@ describe("conversation ledger store", () => {
         question: "Q2",
         answer: "A1",
         status: "answered",
+        provider: { id: "anthropic", model: "claude-sonnet-5", attempts: [] },
         operationKey: "telegram:conversation:10",
       }),
       (error) => error instanceof StoreError && error.code === "OPERATION_KEY_CONFLICT",
