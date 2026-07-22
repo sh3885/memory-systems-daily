@@ -1,6 +1,6 @@
 # Telegram Webhook
 
-`telegram-webhook.mjs` is the transport boundary for a Cloudflare Worker. It does not call the Telegram API directly; message replies and server-side approval-token resolution are injected as functions so they can be tested independently.
+`telegram-webhook.mjs` is the transport boundary for a Cloudflare Worker. Message replies, callback acknowledgements, and approval-token resolution are injected as functions so they can be tested independently.
 
 The handler performs these checks in order:
 
@@ -12,7 +12,6 @@ The handler performs these checks in order:
 6. message or approval callback routing
 7. durable completion record
 
-Approval callback data has the shape `approve:<challenge-id>:<opaque-token>`. The opaque token must be resolved by a server-side `resolveApprovalCallback` implementation. The default resolver rejects requests so a deployment cannot accidentally treat client-supplied data as the approval nonce.
+Approval callback data has the shape `approve:<challenge-id>:<opaque-token>`. The Worker-generated approval prompt uses the opaque token as the nonce and stores only its hash in the approval challenge. The default resolver still rejects requests so a deployment cannot accidentally treat client-supplied data as the approval nonce without choosing that contract explicitly.
 
-`worker.mjs` is the minimal Cloudflare Worker entrypoint. It expects a D1 binding named `DB` and the environment values in `.env.example`. It currently acknowledges messages; the tutor and Telegram API reply integration belong to the next automation task.
-
+`telegram-client.mjs` wraps `sendMessage` and `answerCallbackQuery` with JSON POST requests. `lesson-command-router.mjs` handles `/today`, `/revise`, `/review`, `/help`, and plain-text Q&A. `worker.mjs` expects a D1 binding named `DB` and the environment values in `.env.example`, including `DAILY_CURRICULUM_REF` until a full curriculum selector is wired in.

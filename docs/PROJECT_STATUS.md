@@ -29,13 +29,13 @@
 - Telegram webhook 경계, secret/allowlist 검증, update deduplication, 승인 callback routing
 - UTC cron에서 KST lesson date를 계산하는 idempotent scheduler
 - Provider 주입형 research pipeline, revision-linked claim ledger, primary-source claim validation
+- Telegram Bot API client, `/today`/`/revise`/`/review`/Q&A command router, scheduled lesson notification wiring
 
 ## 다음 구현 단계
 
 - Cloudflare Worker에서 D1 migration과 저장 계층 연결
-- Telegram API 메시지 송신과 Q&A command router
-- callback token의 서버측 저장/검증 구현
-- 실제 LLM/search provider 연결과 Telegram Q&A revision loop
+- 실제 LLM/search provider 연결과 Telegram Q&A 답변 품질 개선
+- conversation ledger와 Q&A 반영 이력 저장
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
 - scheduler와 research 작업의 실패 재시도/lease 정책

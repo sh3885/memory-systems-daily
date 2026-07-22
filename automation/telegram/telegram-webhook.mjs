@@ -109,6 +109,8 @@ export function createTelegramWebhook({
   store,
   onMessage = async () => ({ action: "ignored_message" }),
   onCallback = async () => ({ action: "ignored_callback" }),
+  onApprovalRecorded = async () => ({}),
+  onApprovalRejected = async () => ({}),
   resolveApprovalCallback = async () => {
     throw new TelegramWebhookError("CALLBACK_RESOLVER_NOT_CONFIGURED", "Approval callback resolver is not configured", 500);
   },
@@ -163,7 +165,8 @@ export function createTelegramWebhook({
             nonce: requiredConfig(binding?.nonce, "approval nonce"),
             operationKey: `telegram:approval:${configuredBotId}:${update.update_id}`,
           });
-          outcome = { action: "approval_recorded", approvalId: approval.id };
+          const approvalOutcome = await onApprovalRecorded({ update, actor, approval });
+          outcome = { action: "approval_recorded", approvalId: approval.id, ...(approvalOutcome ?? {}) };
         } else {
           outcome = await onCallback({ update, actor });
         }
@@ -181,6 +184,7 @@ export function createTelegramWebhook({
       return json({ ok: true, handled: true, ...(outcome ?? {}) });
     } catch (error) {
       if (isKnownHandledError(error)) {
+        await onApprovalRejected({ update, actor, error });
         const result = JSON.stringify({ status: "rejected", error: publicErrorCode(error) });
         await store.completeTelegramUpdate({
           botId: configuredBotId,
