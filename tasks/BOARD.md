@@ -18,6 +18,7 @@ No task is currently claimed.
 
 ## Done
 
+- T-021 Cloudflare deployment prep, completed 2026-07-22. See `tasks/handoffs/T-021.md`.
 - T-020 Manual/API hybrid Claude-only mode, completed 2026-07-22. See `tasks/handoffs/T-020.md`.
 - T-019 Provider metadata ledger, completed 2026-07-22. See `tasks/handoffs/T-019.md`.
 - T-018 AI provider fallback router, completed 2026-07-22. See `tasks/handoffs/T-018.md`.
