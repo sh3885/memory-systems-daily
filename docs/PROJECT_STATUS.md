@@ -27,6 +27,7 @@
 - 공유 작업 보드와 글/근거 템플릿
 - D1 호환 학습 세션 상태 머신, immutable revision, 승인 challenge 및 stale approval 차단
 - Telegram webhook 경계, secret/allowlist 검증, update deduplication, 승인 callback routing
+- UTC cron에서 KST lesson date를 계산하는 idempotent scheduler
 
 ## 다음 구현 단계
 
@@ -36,7 +37,7 @@
 - LLM 질의응답과 근거 ledger 생성
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
-- 매일 08:30 KST 스케줄러와 실패 재시도
+- scheduler와 research 작업의 실패 재시도/lease 정책
 
 ## 로컬 상태
 
