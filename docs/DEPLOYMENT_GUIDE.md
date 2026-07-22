@@ -59,9 +59,10 @@ GITHUB_REPOSITORY
 GITHUB_CONTENT_BRANCH
 GITHUB_CONTENT_DIRECTORY
 APPROVAL_SIGNING_SECRET
+PUBLIC_SITE_URL
 ```
 
-`PUBLIC_SITE_URL`, `DEPLOYMENT_PROVIDER`, and `DEPLOYMENT_TOKEN` are not needed for the current manual Telegram loop. They become relevant when approval-to-deploy is fully connected.
+`PUBLIC_SITE_URL` is optional for the current manual Telegram loop. When present, publication records will use it as the final post URL. `DEPLOYMENT_PROVIDER` and `DEPLOYMENT_TOKEN` become relevant only if a separate hosting provider deployment API is added later.
 
 ## D1 Migration
 
@@ -72,6 +73,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\apply-d1-migra
 ```
 
 The script applies migrations to the remote Cloudflare D1 database by default. Use `-Local` only for local testing.
+For a single new migration, pass `-MigrationFilter`, for example:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\apply-d1-migrations.ps1 -DatabaseName memory-systems-daily-db -MigrationFilter "0005_*.sql"
+```
 
 ## Deploy Worker
 

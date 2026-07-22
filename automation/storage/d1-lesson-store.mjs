@@ -176,6 +176,27 @@ function mapConversationTurn(row) {
   };
 }
 
+function mapPublication(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    revisionId: row.revision_id,
+    approvalId: row.approval_id,
+    operationKey: row.operation_key,
+    status: row.status,
+    provider: row.provider,
+    branch: row.branch,
+    filePath: row.file_path,
+    commitSha: row.commit_sha,
+    pullRequestUrl: row.pull_request_url,
+    deploymentUrl: row.deployment_url,
+    errorMessage: row.error_message,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
+  };
+}
+
 function revisionOperationMatches(revision, expected) {
   return Boolean(
     revision &&
@@ -221,6 +242,16 @@ function conversationOperationMatches(turn, expected) {
     turn.providerId === expected.providerId &&
     turn.providerModel === expected.providerModel &&
     JSON.stringify(turn.providerAttempts) === expected.providerAttemptsJson
+  );
+}
+
+function publicationOperationMatches(publication, expected) {
+  return Boolean(
+    publication &&
+    publication.lessonId === expected.lessonId &&
+    publication.revisionId === expected.revisionId &&
+    publication.approvalId === expected.approvalId &&
+    publication.status === expected.status
   );
 }
 
@@ -864,5 +895,157 @@ export class D1LessonStore {
       throw new StoreError("VERSION_CONFLICT", "Lesson changed before publishing started", { lessonId });
     }
     return this.getLesson(lessonId);
+  }
+
+  async getPublication(id) {
+    const row = await this.db.prepare("SELECT * FROM publications WHERE id = ?1").bind(id).first();
+    if (!row) throw new StoreError("PUBLICATION_NOT_FOUND", `Publication not found: ${id}`, { id });
+    return mapPublication(row);
+  }
+
+  async findPublicationByOperationKey(operationKey) {
+    const row = await this.db.prepare("SELECT * FROM publications WHERE operation_key = ?1").bind(operationKey).first();
+    return mapPublication(row);
+  }
+
+  async recordPublicationSuccess({
+    lessonId,
+    revisionId,
+    approvalId,
+    operationKey,
+    provider,
+    branch,
+    filePath,
+    commitSha,
+    pullRequestUrl = null,
+    deploymentUrl = null,
+  }) {
+    const key = requireText(operationKey, "operationKey");
+    const expected = { lessonId, revisionId, approvalId, status: "published" };
+    const existing = await this.findPublicationByOperationKey(key);
+    if (existing) {
+      if (!publicationOperationMatches(existing, expected)) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was reused with a different publication payload", {
+          operationKey: key,
+        });
+      }
+      return existing;
+    }
+
+    const timestamp = this.now();
+    const publicationId = this.id("publication");
+    try {
+      await this.db.batch([
+        this.db.prepare(`
+          INSERT INTO publications (
+            id, lesson_id, revision_id, approval_id, operation_key, status, provider,
+            branch, file_path, commit_sha, pull_request_url, deployment_url,
+            error_message, created_at, completed_at
+          ) VALUES (?1, ?2, ?3, ?4, ?5, 'published', ?6, ?7, ?8, ?9, ?10, ?11, NULL, ?12, ?12)
+        `).bind(
+          publicationId,
+          lessonId,
+          revisionId,
+          approvalId,
+          key,
+          requireText(provider, "provider"),
+          requireText(branch, "branch"),
+          requireText(filePath, "filePath"),
+          requireText(commitSha, "commitSha"),
+          pullRequestUrl,
+          deploymentUrl,
+          timestamp,
+        ),
+        this.db.prepare(`
+          UPDATE approvals
+          SET status = 'consumed', consumed_at = ?1
+          WHERE id = ?2 AND status = 'active'
+        `).bind(timestamp, approvalId),
+        this.db.prepare(`
+          UPDATE lessons
+          SET state = 'published', state_version = state_version + 1, updated_at = ?1
+          WHERE id = ?2 AND state = 'publishing'
+        `).bind(timestamp, lessonId),
+      ]);
+    } catch (error) {
+      const committed = await this.findPublicationByOperationKey(key);
+      if (publicationOperationMatches(committed, expected)) return committed;
+      if (committed) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was committed with a different publication payload", {
+          operationKey: key,
+        });
+      }
+      throw new StoreError("PUBLICATION_CONFLICT", "Publication success could not be recorded atomically", {
+        lessonId,
+        approvalId,
+        cause: error.message,
+      });
+    }
+
+    return this.getPublication(publicationId);
+  }
+
+  async recordPublicationFailure({
+    lessonId,
+    revisionId,
+    approvalId,
+    operationKey,
+    provider,
+    errorMessage,
+  }) {
+    const key = requireText(operationKey, "operationKey");
+    const expected = { lessonId, revisionId, approvalId, status: "failed" };
+    const existing = await this.findPublicationByOperationKey(key);
+    if (existing) {
+      if (!publicationOperationMatches(existing, expected)) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was reused with a different publication payload", {
+          operationKey: key,
+        });
+      }
+      return existing;
+    }
+
+    const timestamp = this.now();
+    const publicationId = this.id("publication");
+    try {
+      await this.db.batch([
+        this.db.prepare(`
+          INSERT INTO publications (
+            id, lesson_id, revision_id, approval_id, operation_key, status, provider,
+            branch, file_path, commit_sha, pull_request_url, deployment_url,
+            error_message, created_at, completed_at
+          ) VALUES (?1, ?2, ?3, ?4, ?5, 'failed', ?6, NULL, NULL, NULL, NULL, NULL, ?7, ?8, ?8)
+        `).bind(
+          publicationId,
+          lessonId,
+          revisionId,
+          approvalId,
+          key,
+          requireText(provider, "provider"),
+          requireText(errorMessage, "errorMessage").slice(0, 2000),
+          timestamp,
+        ),
+        this.db.prepare(`
+          UPDATE lessons
+          SET state = 'publish_failed', state_version = state_version + 1, updated_at = ?1
+          WHERE id = ?2 AND state = 'publishing'
+        `).bind(timestamp, lessonId),
+      ]);
+    } catch (error) {
+      const committed = await this.findPublicationByOperationKey(key);
+      if (publicationOperationMatches(committed, expected)) return committed;
+      if (committed) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was committed with a different publication payload", {
+          operationKey: key,
+        });
+      }
+      throw new StoreError("PUBLICATION_CONFLICT", "Publication failure could not be recorded atomically", {
+        lessonId,
+        approvalId,
+        cause: error.message,
+      });
+    }
+
+    return this.getPublication(publicationId);
   }
 }

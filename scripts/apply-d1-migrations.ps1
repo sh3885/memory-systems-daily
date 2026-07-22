@@ -1,6 +1,7 @@
 param(
     [string]$DatabaseName = "memory-systems-daily-db",
     [string]$MigrationsPath = "automation/storage/migrations",
+    [string]$MigrationFilter = "*.sql",
     [switch]$Local
 )
 
@@ -9,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $wrangler = Get-Command wrangler -ErrorAction SilentlyContinue
 $useNpx = $null -eq $wrangler
 
-$migrationFiles = Get-ChildItem -LiteralPath $MigrationsPath -Filter "*.sql" | Sort-Object Name
+$migrationFiles = Get-ChildItem -LiteralPath $MigrationsPath -Filter $MigrationFilter | Sort-Object Name
 if ($migrationFiles.Count -eq 0) {
     throw "No D1 migration files found under $MigrationsPath"
 }

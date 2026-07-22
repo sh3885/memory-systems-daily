@@ -69,7 +69,8 @@ $secretNames = @(
     "GITHUB_REPOSITORY",
     "GITHUB_CONTENT_BRANCH",
     "GITHUB_CONTENT_DIRECTORY",
-    "APPROVAL_SIGNING_SECRET"
+    "APPROVAL_SIGNING_SECRET",
+    "PUBLIC_SITE_URL"
 )
 
 $envValues = Read-DotEnvWithPem $EnvPath
