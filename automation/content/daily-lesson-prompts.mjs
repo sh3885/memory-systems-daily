@@ -77,7 +77,7 @@ const qualityGate = [
   "Markdown 표 1개와 inline SVG 다이어그램 1개를 본문에 포함한다.",
   "표준, 제품, 논문, 벤치마크 claim은 public source 후보와 연결한다.",
   "확정 사실, 해석, 추정을 분리한다.",
-  "회사/고객/로드맵/공정/수율/내부 벤치마크 정보는 절대 넣지 않는다.",
+  "공개 출처로 확인 가능한 내용과 개인적인 해석을 구분한다.",
 ];
 
 export function findDailyLesson(curriculumRef) {

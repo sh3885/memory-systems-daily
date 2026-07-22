@@ -135,17 +135,15 @@ Tasks:
 - Require every generated post to include an inline SVG diagram that renders directly in Markdown without separate image upload. Done at prompt level.
 - Add generated image asset upload for external PNG/SVG files when Telegram attachments or local generated images are needed.
 - Add a pre-publication content-policy checklist:
-  - no employer confidential information
-  - no customer confidential information
-  - no unreleased roadmap/process/yield/design details
-  - public sources only
+  - public source candidates recorded for factual claims
+  - personal interpretation clearly separated from cited facts
   - fact vs interpretation vs prediction separated
 - Add a technical review prompt for Claude web.
 - Add a "claim gaps" section in draft prompts.
 
 Done when:
 
-- Drafts consistently cite public sources, avoid confidential material, and contain at least one useful table plus one useful diagram.
+- Drafts consistently cite public-source candidates and contain at least one useful table plus one useful diagram.
 
 ## P5: Automation Hardening
 

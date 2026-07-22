@@ -34,7 +34,7 @@ export const curriculumQualityGate = [
   "Every post must include one visual artifact: table, pipeline diagram, memory map, roofline sketch, or traffic equation.",
   "Every factual claim about standards, products, papers, or benchmarks must be tied to public sources.",
   "Every post must separate established fact, interpretation, and speculation.",
-  "No employer-confidential, customer-confidential, roadmap, yield, process, unreleased product, or internal benchmark information.",
+  "Keep public-source facts, personal interpretation, and speculation clearly separated.",
 ];
 
 export const postBlueprints: PostBlueprint[] = [
