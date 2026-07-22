@@ -1,13 +1,14 @@
 import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";
 
-const baseUrl = "http://127.0.0.1:4321";
+const baseUrl = process.env.VISUAL_BASE_URL ?? "http://127.0.0.1:4321";
 const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const routes = [
   ["home", "/", "Memory Systems Daily"],
-  ["roadmap", "/roadmap", "전체 학습 과정"],
-  ["automation", "/automation", "매일 08:30"],
-  ["post", "/posts/llm-next-token", "다음 Token을 예측"],
+  ["llm", "/llm/", "Transformer"],
+  ["memory", "/memory/", "DRAM"],
+  ["system", "/system/", "CPU/GPU"],
+  ["post", "/posts/llm-next-token/", "Memory Traffic"],
 ];
 const viewports = [
   ["desktop", { width: 1440, height: 1000 }],

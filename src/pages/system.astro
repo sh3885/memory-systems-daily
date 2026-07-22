@@ -1,0 +1,38 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { categoryById, postsForCategory } from "../data/blog";
+
+const category = categoryById("system");
+const categoryPosts = postsForCategory("system");
+---
+
+<BaseLayout title="System | Memory Systems Daily" description={category.description}>
+  <section class="shell blog-wrap">
+    <header class="blog-title">
+      <p class="kicker">Category</p>
+      <h1>{category.label}</h1>
+      <p>{category.description}</p>
+    </header>
+
+    <section class="post-stream">
+      {categoryPosts.length > 0 ? categoryPosts.map((post) => (
+        <a class="post-card" href={post.url}>
+          <div class="post-thumb">
+            <img src="/images/memory-systems-hero.png" alt="" loading="lazy" />
+          </div>
+          <div class="post-summary">
+            <div class="post-meta">
+              <span class:list={["pill", post.category]}>{post.categoryLabel}</span>
+              {post.lessonDate && <span class="pill">{post.lessonDate}</span>}
+            </div>
+            <h2>{post.title}</h2>
+            <p>{post.description}</p>
+            <div class="post-tags">
+              {post.tags.slice(0, 5).map((tag) => <span class="pill">{tag}</span>)}
+            </div>
+          </div>
+        </a>
+      )) : <div class="empty-state">아직 System 글이 없습니다.</div>}
+    </section>
+  </section>
+</BaseLayout>

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { publicationPath, renderAstroMarkdownPost } from "../publishing/astro-post.mjs";
+import { publicationPath, renderAstroMarkdownPost, taxonomyForPost } from "../publishing/astro-post.mjs";
 import { createGitHubAppPublisher } from "../publishing/github-app-publisher.mjs";
 import { createPublicationService, PublicationServiceError } from "../publishing/publication-service.mjs";
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
@@ -72,9 +72,28 @@ describe("publication rendering and service", () => {
       "src/pages/posts/2026-07-22-m05-w12-d1-r1.md",
     );
     const content = renderAstroMarkdownPost({ lesson, revision });
-    assert.match(content, /layout: \.\.\/\.\.\/layouts\/BaseLayout\.astro/);
+    assert.match(content, /layout: \.\.\/\.\.\/layouts\/PostLayout\.astro/);
     assert.match(content, /title: "LLM memory bottleneck"/);
+    assert.match(content, /category: "LLM"/);
+    assert.match(content, /tags: \["LLM", "Transformer", "KV Cache", "Token"\]/);
     assert.match(content, /# LLM memory bottleneck/);
+  });
+
+  test("classifies generated posts into blog categories", () => {
+    assert.deepEqual(
+      taxonomyForPost({
+        lesson: { curriculumRef: "M02-W04-D2" },
+        content: "# HBM bandwidth\n\nDRAM interface width changes bandwidth.",
+      }),
+      { category: "Memory", tags: ["Memory", "DRAM", "Bandwidth", "HBM"] },
+    );
+    assert.equal(
+      taxonomyForPost({
+        lesson: { curriculumRef: "M05-W12-D1" },
+        content: "# Roofline model\n\nGPU kernels can become memory-bound.",
+      }).category,
+      "System",
+    );
   });
 
   test("publishes through an injected publisher and records success", async () => {

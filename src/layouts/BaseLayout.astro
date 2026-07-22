@@ -1,13 +1,22 @@
 ---
-import { BookOpenText, RadioTower, Route } from "@lucide/astro";
+import { BrainCircuit, Cpu, Database, House } from "@lucide/astro";
 import "../styles/global.css";
 
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
+  frontmatter?: {
+    title?: string;
+    description?: string;
+  };
 }
 
-const { title, description = "LLM과 메모리 시스템을 매일 공부하고 기록하는 기술 블로그" } = Astro.props;
+const frontmatter = Astro.props.frontmatter ?? {};
+const title = Astro.props.title ?? frontmatter.title ?? "Memory Systems Daily";
+const description =
+  Astro.props.description ??
+  frontmatter.description ??
+  "LLM, memory, and system architecture notes written as a technical blog.";
 const path = Astro.url.pathname;
 ---
 
@@ -23,14 +32,15 @@ const path = Astro.url.pathname;
   <body>
     <header class="site-header">
       <div class="shell header-inner">
-        <a class="brand" href="/" aria-label="Memory Systems Daily 홈">
+        <a class="brand" href="/" aria-label="Memory Systems Daily home">
           <span class="brand-mark">MS</span>
           <span>Memory Systems Daily</span>
         </a>
-        <nav aria-label="주요 메뉴">
-          <a class:list={[{ active: path === "/" }]} href="/"><BookOpenText size={17} />오늘</a>
-          <a class:list={[{ active: path.startsWith("/roadmap") }]} href="/roadmap"><Route size={17} />전체 과정</a>
-          <a class:list={[{ active: path.startsWith("/automation") }]} href="/automation"><RadioTower size={17} />자동화</a>
+        <nav aria-label="블로그 카테고리">
+          <a class:list={[{ active: path === "/" }]} href="/"><House size={16} />Home</a>
+          <a class:list={[{ active: path.startsWith("/llm") }]} href="/llm/"><BrainCircuit size={16} />LLM</a>
+          <a class:list={[{ active: path.startsWith("/memory") }]} href="/memory/"><Database size={16} />Memory</a>
+          <a class:list={[{ active: path.startsWith("/system") }]} href="/system/"><Cpu size={16} />System</a>
         </nav>
       </div>
     </header>
@@ -39,11 +49,8 @@ const path = Astro.url.pathname;
     </main>
     <footer>
       <div class="shell footer-inner">
-        <div>
-          <strong>Memory Systems Daily</strong>
-          <p>워크로드에서 메모리 제품 요구사항까지.</p>
-        </div>
-        <p class="footer-note">공개 자료와 재현 가능한 실험만 사용합니다.</p>
+        <strong>Memory Systems Daily</strong>
+        <p>LLM과 메모리 시스템을 공부하며 정리하는 개인 기술 블로그입니다.</p>
       </div>
     </footer>
   </body>
@@ -55,100 +62,111 @@ const path = Astro.url.pathname;
     z-index: 10;
     top: 0;
     border-bottom: 1px solid var(--line);
-    background: rgba(247, 248, 244, 0.95);
-    backdrop-filter: blur(14px);
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
   }
 
   .header-inner {
     display: flex;
-    min-height: 66px;
+    min-height: 60px;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
+    gap: 20px;
   }
 
   .brand {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-size: 0.95rem;
+    font-size: 0.96rem;
     font-weight: 850;
+    white-space: nowrap;
   }
 
   .brand-mark {
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     place-items: center;
     border-radius: 5px;
     background: var(--ink);
     color: white;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
   }
 
   nav {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
   }
 
   nav a {
     display: inline-flex;
-    min-height: 38px;
+    min-height: 36px;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     padding: 7px 10px;
     border-radius: 5px;
     color: var(--muted);
-    font-size: 0.86rem;
-    font-weight: 750;
+    font-size: 0.84rem;
+    font-weight: 760;
   }
 
   nav a:hover,
   nav a.active {
-    background: white;
+    background: var(--paper);
     color: var(--ink);
   }
 
   footer {
-    padding: 48px 0;
+    padding: 38px 0;
     border-top: 1px solid var(--line);
     background: white;
   }
 
   .footer-inner {
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    gap: 30px;
+    gap: 24px;
+    color: var(--muted);
+    font-size: 0.86rem;
+  }
+
+  footer strong {
+    color: var(--ink);
   }
 
   footer p {
-    margin: 4px 0 0;
-    color: var(--muted);
-    font-size: 0.88rem;
+    margin: 0;
   }
 
-  @media (max-width: 680px) {
+  @media (max-width: 760px) {
     .header-inner {
-      min-height: 58px;
+      min-height: auto;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 12px 0 10px;
+      gap: 10px;
     }
 
-    .brand > span:last-child {
-      display: none;
+    nav {
+      justify-content: space-between;
     }
 
     nav a {
-      gap: 5px;
-      padding: 6px 8px;
-      font-size: 0.76rem;
+      flex: 1;
+      justify-content: center;
+      padding: 6px 7px;
+      font-size: 0.78rem;
     }
 
     .footer-inner {
       display: block;
     }
 
-    .footer-note {
-      margin-top: 22px;
+    footer p {
+      margin-top: 6px;
     }
   }
 </style>

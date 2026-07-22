@@ -8,6 +8,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-030 Public blog structure and taxonomy, completed 2026-07-22. See `tasks/handoffs/T-030.md`.
 - T-029 Prompt wording and URL guide, completed 2026-07-22. See `tasks/handoffs/T-029.md`.
 - T-028 Artifact-aware prompt automation, completed 2026-07-22. See `tasks/handoffs/T-028.md`.
 - T-027 Rich daily curriculum model, completed 2026-07-22. See `tasks/handoffs/T-027.md`.

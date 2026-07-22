@@ -1,0 +1,64 @@
+---
+import { ArrowLeft } from "@lucide/astro";
+import BaseLayout from "./BaseLayout.astro";
+import { categoryById, normalizeCategory } from "../data/blog";
+
+interface Props {
+  frontmatter?: {
+    title?: string;
+    description?: string;
+    category?: string;
+    tags?: string[];
+    lessonDate?: string;
+    pubDate?: string;
+    date?: string;
+    minutes?: number;
+  };
+}
+
+const frontmatter = Astro.props.frontmatter ?? {};
+const categoryId = normalizeCategory(frontmatter.category);
+const category = categoryById(categoryId);
+const title = frontmatter.title ?? "Untitled post";
+const description = frontmatter.description ?? "";
+const tags = Array.isArray(frontmatter.tags) ? frontmatter.tags : [];
+const lessonDate = frontmatter.lessonDate ?? frontmatter.pubDate ?? frontmatter.date;
+const minutes = frontmatter.minutes;
+---
+
+<BaseLayout title={`${title} | Memory Systems Daily`} description={description}>
+  <article class="post-page">
+    <header class="post-header">
+      <div class="shell post-header-inner">
+        <a class="back-link" href={category.path}><ArrowLeft size={17} />{category.label} 목록</a>
+        <div class="post-kicker">
+          <span>{category.label}</span>
+          {lessonDate && <span>{lessonDate}</span>}
+          {minutes && <span>{minutes} min read</span>}
+        </div>
+        <h1>{title}</h1>
+        {description && <p>{description}</p>}
+      </div>
+    </header>
+
+    <div class="shell post-layout">
+      <main class="post-content">
+        <slot />
+      </main>
+      <aside class="post-side">
+        <section>
+          <strong>Category</strong>
+          <a href={category.path}>{category.label}</a>
+        </section>
+        {tags.length > 0 && (
+          <section>
+            <strong>Tags</strong>
+            <div class="tag-list">
+              {tags.map((tag) => <span>{tag}</span>)}
+            </div>
+          </section>
+        )}
+      </aside>
+    </div>
+  </article>
+</BaseLayout>
