@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 import {
   createOpenAIResponsesClient,
   createStudyAnswerProvider,
+  createStudyResearchProvider,
   createStudyRevisionProvider,
   OpenAIProviderError,
 } from "../llm/openai-responses-provider.mjs";
@@ -102,5 +103,54 @@ describe("OpenAI Responses provider", () => {
     assert.equal(revision.content, "# revised");
     assert.match(revision.changeSummary, /OpenAI Responses/);
     assert.equal(requests[1].metadata.workflow, "telegram_revision");
+  });
+
+  test("builds research drafts from JSON output", async () => {
+    const responsesClient = {
+      createResponse: async (request) => {
+        assert.equal(request.metadata.workflow, "daily_research_draft");
+        assert.match(request.input, /M07-W18-D1/);
+        return {
+          outputText: JSON.stringify({
+            content: "# LLM 추론 병목\n\nKV cache를 bandwidth 관점에서 본다.",
+            changeSummary: "Created research draft",
+            claims: [{
+              claimKey: "attention-paper",
+              statement: "Transformer attention uses query, key, and value projections.",
+              sourceUrl: "https://arxiv.org/abs/1706.03762",
+              sourceTitle: "Attention Is All You Need",
+              sourceType: "paper",
+              evidenceLocator: "Section 3.2",
+              confidence: "high",
+              verificationStatus: "verified",
+              checkedAt: "2026-07-22T00:00:00.000Z",
+            }],
+          }),
+        };
+      },
+    };
+    const provider = createStudyResearchProvider({ responsesClient });
+    const draft = await provider({
+      lessonDate: "2026-07-22",
+      curriculumRef: "M07-W18-D1",
+      topic: { title: "LLM inference" },
+      checkedAt: "2026-07-22T00:00:00.000Z",
+    });
+    assert.match(draft.content, /KV cache/);
+    assert.equal(draft.claims.length, 1);
+  });
+
+  test("rejects non-JSON research output", async () => {
+    const provider = createStudyResearchProvider({
+      responsesClient: { createResponse: async () => ({ outputText: "not json" }) },
+    });
+    await assert.rejects(
+      () => provider({
+        lessonDate: "2026-07-22",
+        curriculumRef: "M07-W18-D1",
+        checkedAt: "2026-07-22T00:00:00.000Z",
+      }),
+      (error) => error instanceof OpenAIProviderError && error.code === "INVALID_JSON_OUTPUT",
+    );
   });
 });

@@ -1,8 +1,10 @@
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
+import { createResearchPipeline } from "../research/research-pipeline.mjs";
 import { createCloudflareScheduledHandler } from "../scheduler/daily-lesson-scheduler.mjs";
 import {
   createOpenAIResponsesClient,
   createStudyAnswerProvider,
+  createStudyResearchProvider,
   createStudyRevisionProvider,
 } from "../llm/openai-responses-provider.mjs";
 import { createApprovalPromptService, createLessonCommandRouter } from "./lesson-command-router.mjs";
@@ -12,31 +14,41 @@ import { createTelegramWebhook } from "./telegram-webhook.mjs";
 function createRuntime(env) {
   const store = new D1LessonStore(env.DB);
   const telegram = createTelegramClient({ botToken: env.TELEGRAM_BOT_TOKEN });
+  const responsesClient = String(env.OPENAI_API_KEY ?? "").trim()
+    ? createOpenAIResponsesClient({
+        apiKey: env.OPENAI_API_KEY,
+        model: env.AI_MODEL || "gpt-5.6",
+      })
+    : null;
   const routerOptions = {
     store,
     telegram,
     approvalPrompt: createApprovalPromptService({ store }),
   };
-  if (String(env.OPENAI_API_KEY ?? "").trim()) {
-    const responsesClient = createOpenAIResponsesClient({
-      apiKey: env.OPENAI_API_KEY,
-      model: env.AI_MODEL || "gpt-5.6",
-    });
+  if (responsesClient) {
     routerOptions.answerProvider = createStudyAnswerProvider({ responsesClient });
     routerOptions.revisionProvider = createStudyRevisionProvider({ responsesClient });
   }
   const router = createLessonCommandRouter(routerOptions);
-  return { store, telegram, router };
+  const researchPipeline = responsesClient
+    ? createResearchPipeline({
+        store,
+        researchProvider: createStudyResearchProvider({ responsesClient }),
+      })
+    : null;
+  return { store, telegram, router, researchPipeline };
 }
 
-function dailyLessonMessage({ lessonDate, curriculumRef, lesson }) {
-  return [
+function dailyLessonMessage({ lessonDate, curriculumRef, lesson, research }) {
+  const lines = [
     `좋은 아침. ${lessonDate} 학습 세션이 준비됐어.`,
     `커리큘럼: ${curriculumRef}`,
-    `상태: ${lesson.state}`,
+    `상태: ${research?.lesson?.state ?? lesson.state}`,
+    `초안: ${research ? `revision ${research.revision.revisionNumber}` : "아직 생성 전"}`,
     "",
     "/today로 현재 초안을 확인하고, 이해 안 되는 부분은 그대로 질문해줘.",
-  ].join("\n");
+  ];
+  return lines.join("\n");
 }
 
 export default {
@@ -75,16 +87,28 @@ export default {
   },
 
   async scheduled(controller, env) {
-    const { store, telegram } = createRuntime(env);
+    const { store, telegram, researchPipeline } = createRuntime(env);
     const handler = createCloudflareScheduledHandler({
       store,
       curriculumRefForDate: async () => env.DAILY_CURRICULUM_REF,
     });
     const result = await handler(controller);
+    let research = null;
+    if (researchPipeline) {
+      research = await researchPipeline.runLessonResearch({
+        lessonDate: result.lessonDate,
+        curriculumRef: result.curriculumRef,
+        topic: {
+          curriculumRef: result.curriculumRef,
+          instruction: "Create today's Korean study draft and primary-source claim ledger.",
+        },
+        operationKey: `scheduled:${result.lessonDate}:${result.curriculumRef}`,
+      });
+    }
     await telegram.sendMessage({
       chatId: env.TELEGRAM_ALLOWED_CHAT_ID,
-      text: dailyLessonMessage(result),
+      text: dailyLessonMessage({ ...result, research }),
     });
-    return result;
+    return { ...result, research };
   },
 };

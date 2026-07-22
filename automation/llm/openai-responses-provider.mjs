@@ -114,6 +114,26 @@ function revisionContext({ lessonDate, lesson, revision }) {
   return lines.join("\n");
 }
 
+function parseJsonObject(text, field) {
+  const raw = requireText(text, field);
+  const stripped = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  try {
+    const value = JSON.parse(stripped);
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("not an object");
+    }
+    return value;
+  } catch (error) {
+    throw new OpenAIProviderError("INVALID_JSON_OUTPUT", `${field} must be a JSON object`, {
+      field,
+      cause: error.message,
+    });
+  }
+}
+
 export function createStudyAnswerProvider({ responsesClient }) {
   if (!responsesClient?.createResponse) {
     throw new OpenAIProviderError("INVALID_INPUT", "responsesClient is required", { field: "responsesClient" });
@@ -135,6 +155,41 @@ export function createStudyAnswerProvider({ responsesClient }) {
       metadata: { workflow: "telegram_qna" },
     });
     return { answer: response.outputText };
+  };
+}
+
+export function createStudyResearchProvider({ responsesClient }) {
+  if (!responsesClient?.createResponse) {
+    throw new OpenAIProviderError("INVALID_INPUT", "responsesClient is required", { field: "responsesClient" });
+  }
+  return async function researchTopic({ lessonDate, curriculumRef, topic, checkedAt }) {
+    const response = await responsesClient.createResponse({
+      instructions: [
+        "You create Korean technical study drafts for a DRAM systems engineer studying LLMs, architecture, memory systems, and emerging interfaces.",
+        "Use only public information. Never include employer-confidential, customer-confidential, unreleased product, roadmap, benchmark, yield, or proprietary design details.",
+        "Use web search when recent or source-backed facts are needed.",
+        "Return a JSON object only, with keys: content, changeSummary, claims.",
+        "content must be a Korean Markdown draft. claims must be an array of primary-source claims.",
+        "Each claim must include claimKey, statement, sourceUrl, sourceTitle, sourceType, evidenceLocator, confidence, verificationStatus, checkedAt.",
+        "Allowed sourceType values: standard, vendor_documentation, official_documentation, official_repository, paper, dataset.",
+        "Allowed confidence values: high, medium, low. Allowed verificationStatus values: verified, needs_review, conflicting.",
+      ].join("\n"),
+      input: [
+        `lessonDate: ${lessonDate}`,
+        `curriculumRef: ${curriculumRef}`,
+        `checkedAt: ${checkedAt}`,
+        "",
+        "topic:",
+        JSON.stringify(topic ?? {}),
+      ].join("\n"),
+      metadata: { workflow: "daily_research_draft" },
+    });
+    const parsed = parseJsonObject(response.outputText, "researchOutput");
+    return {
+      content: requireText(parsed.content, "content"),
+      changeSummary: requireText(parsed.changeSummary ?? "OpenAI research draft", "changeSummary"),
+      claims: parsed.claims,
+    };
   };
 }
 

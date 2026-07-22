@@ -31,11 +31,11 @@
 - Provider 주입형 research pipeline, revision-linked claim ledger, primary-source claim validation
 - Telegram Bot API client, `/today`/`/revise`/`/review`/Q&A command router, scheduled lesson notification wiring
 - OpenAI Responses API 기반 Telegram Q&A/revision provider, optional `web_search`, immutable conversation ledger
+- OpenAI/search-backed scheduled research draft provider, daily draft revision, primary-source claim ledger, Telegram notification
 
 ## 다음 구현 단계
 
 - Cloudflare Worker에서 D1 migration과 저장 계층 연결
-- research pipeline에 OpenAI/search provider 연결
 - 날짜별 curriculum selector와 lesson topic 확장
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
