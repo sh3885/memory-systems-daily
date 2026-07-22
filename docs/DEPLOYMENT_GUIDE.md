@@ -90,6 +90,23 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-worker.
 
 On Windows PowerShell, use `npx.cmd` instead of `npx` if script execution policy blocks `npx.ps1`.
 
+## Deploy Public Blog
+
+The public Astro blog is deployed to Cloudflare Pages:
+
+```text
+https://memory-systems-daily.pages.dev
+```
+
+Build and deploy it with:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-pages.ps1
+```
+
+`PUBLIC_SITE_URL` should stay aligned with this URL so Telegram-approved publications record the final public post URL.
+The script runs Wrangler from a temporary working directory so the Worker `wrangler.toml` does not get interpreted as a Pages config.
+
 The scheduled trigger in the template is `30 23 * * *`, which is 08:30 Asia/Seoul.
 
 ## Register Telegram Webhook

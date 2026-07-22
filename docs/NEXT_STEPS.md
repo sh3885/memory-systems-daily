@@ -25,12 +25,14 @@ Working pieces:
 - Optional Claude API workflow: `/ask-api`, `/revise-api`.
 - Approval button flow.
 - GitHub App publishing to `content/daily` branch with PR creation.
+- Public Cloudflare Pages site at `https://memory-systems-daily.pages.dev`.
+- Worker publishing records are configured with `PUBLIC_SITE_URL=https://memory-systems-daily.pages.dev`.
 
 Still unproven in real use:
 
 - A full real Telegram run from `/prompt` to approval button to GitHub PR.
 - Real 08:30 KST cron delivery observed in production.
-- Public Astro site hosting URL and final post URL recording.
+- Final post URL recording after a real approval-button publication.
 
 ## P0: Prove The End-To-End Loop
 
@@ -55,10 +57,12 @@ Done when:
 
 Goal: approved posts should become public blog pages, not only GitHub PRs.
 
+Status: infrastructure complete. The site is live and Worker publishing has the public URL. The next real Telegram approval should confirm final post URL recording.
+
 Tasks:
 
-- Choose hosting path: Cloudflare Pages, GitHub Pages, or another static host.
-- Connect the repository and configure Astro build.
+- Use Cloudflare Pages for the public Astro blog.
+- Deploy `dist/` to `https://memory-systems-daily.pages.dev`.
 - Decide whether PR merge is manual or automated after approval.
 - Set `PUBLIC_SITE_URL` in `.env` and Worker secrets.
 - Redeploy Worker so publication records contain final public URLs.
@@ -70,7 +74,7 @@ Recommended direction:
 
 Done when:
 
-- A post approved in Telegram becomes reachable at the public site URL.
+- The site is reachable at `https://memory-systems-daily.pages.dev`, and the next approved post records a public URL.
 
 ## P2: Curriculum Revision
 
@@ -189,7 +193,7 @@ The next autonomous batch should be:
 
 1. Run the real Telegram end-to-end flow and fix any issue.
 2. Add `/status` and `/publish-retry`.
-3. Create Cloudflare Pages hosting and set `PUBLIC_SITE_URL`.
+3. Confirm the first approval-button publication records the Cloudflare Pages public URL.
 4. Clean up the first two weeks of curriculum.
 5. Fix visible Korean encoding artifacts in the UI/messages.
 

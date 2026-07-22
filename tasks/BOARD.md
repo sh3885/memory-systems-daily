@@ -10,6 +10,7 @@ No task is currently claimed.
 
 ## Done
 
+- T-024 Public blog hosting, completed 2026-07-22. See `tasks/handoffs/T-024.md`.
 - T-023 Forward roadmap document, completed 2026-07-22. See `tasks/handoffs/T-023.md`.
 - T-013 Approval and GitHub publishing, completed 2026-07-22. See `tasks/handoffs/T-013.md`.
 - T-022 Cloudflare Worker config, completed 2026-07-22. See `tasks/handoffs/T-022.md`.
