@@ -8,6 +8,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-026 Curriculum first-pass cleanup, completed 2026-07-22. See `tasks/handoffs/T-026.md`.
 - T-025 Telegram operations UX, completed 2026-07-22. See `tasks/handoffs/T-025.md`.
 - T-024 Public blog hosting, completed 2026-07-22. See `tasks/handoffs/T-024.md`.
 - T-023 Forward roadmap document, completed 2026-07-22. See `tasks/handoffs/T-023.md`.

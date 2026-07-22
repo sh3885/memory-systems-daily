@@ -81,10 +81,12 @@ Done when:
 
 Goal: make the learning path match the user's actual job needs: DRAM company engineer studying systems that consume memory.
 
+Status: first-pass cleanup complete. `src/data/curriculum.ts` is readable UTF-8 and now starts with LLM fundamentals plus memory traffic, then moves through CPU/DRAM, DRAM interfaces, GPU/AI acceleration, LLM training/inference, distributed AI, I/O, CXL, emerging memory, and latest LLM trends.
+
 Tasks:
 
-- Rebalance curriculum so LLM fundamentals and memory systems both appear early.
-- Add explicit tracks:
+- Rebalance curriculum so LLM fundamentals and memory systems both appear early. Done.
+- Add explicit tracks. Done:
   - LLM fundamentals and current trends.
   - GPU/accelerator architecture for AI.
   - DRAM, HBM, DDR, LPDDR, GDDR.
@@ -93,7 +95,7 @@ Tasks:
   - PIM, near-memory computing, persistent/emerging memory.
   - Performance modeling: bandwidth, latency, capacity, energy.
 - Define daily post templates by topic type.
-- Add "what I should understand after today" for each lesson.
+- Add "what I should understand after today" for each lesson. Done at module outcome level; per-day expansion is still future work.
 - Add review weeks and synthesis posts.
 
 Done when:
