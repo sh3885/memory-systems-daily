@@ -2,6 +2,7 @@ node_modules/
 dist/
 .astro/
 .tools/
+.wrangler/
 artifacts/
 astro-dev.log
 astro-dev-error.log

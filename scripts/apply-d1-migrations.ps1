@@ -1,6 +1,7 @@
 param(
     [string]$DatabaseName = "memory-systems-daily-db",
-    [string]$MigrationsPath = "automation/storage/migrations"
+    [string]$MigrationsPath = "automation/storage/migrations",
+    [switch]$Local
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,13 +17,22 @@ if ($migrationFiles.Count -eq 0) {
 foreach ($file in $migrationFiles) {
     Write-Host ("Applying D1 migration: {0}" -f $file.Name)
     if ($useNpx) {
-        & npx.cmd wrangler d1 execute $DatabaseName --file $file.FullName
+        if ($Local) {
+            & npx.cmd wrangler d1 execute $DatabaseName --file $file.FullName
+        } else {
+            & npx.cmd wrangler d1 execute $DatabaseName --remote --file $file.FullName
+        }
     } else {
-        & wrangler d1 execute $DatabaseName --file $file.FullName
+        if ($Local) {
+            & wrangler d1 execute $DatabaseName --file $file.FullName
+        } else {
+            & wrangler d1 execute $DatabaseName --remote --file $file.FullName
+        }
     }
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
 }
 
-Write-Host ("Applied {0} D1 migrations to {1}." -f $migrationFiles.Count, $DatabaseName)
+$location = if ($Local) { "local" } else { "remote" }
+Write-Host ("Applied {0} D1 migrations to {1} ({2})." -f $migrationFiles.Count, $DatabaseName, $location)

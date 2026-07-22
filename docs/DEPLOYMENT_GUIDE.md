@@ -71,13 +71,18 @@ After Wrangler is logged in and the D1 database exists:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\apply-d1-migrations.ps1 -DatabaseName memory-systems-daily-db
 ```
 
+The script applies migrations to the remote Cloudflare D1 database by default. Use `-Local` only for local testing.
+
 ## Deploy Worker
 
-Deploy with Wrangler after the real `wrangler.toml` exists:
+Deploy with Wrangler after the real `wrangler.toml` exists. The project script uploads secrets from `.env`
+through a temporary file and removes the temporary file after deployment:
 
 ```powershell
-npx wrangler deploy
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\deploy-worker.ps1
 ```
+
+On Windows PowerShell, use `npx.cmd` instead of `npx` if script execution policy blocks `npx.ps1`.
 
 The scheduled trigger in the template is `30 23 * * *`, which is 08:30 Asia/Seoul.
 
