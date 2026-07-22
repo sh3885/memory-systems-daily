@@ -23,35 +23,13 @@ describe("Worker scheduled lesson flow", () => {
   let originalFetch;
   let db;
   let telegramMessages;
-  let openAIRequests;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
     db = new NodeD1Database(schema);
     telegramMessages = [];
-    openAIRequests = [];
     globalThis.fetch = async (url, init) => {
       const body = JSON.parse(init.body);
-      if (String(url).endsWith("/responses")) {
-        openAIRequests.push({ url, body });
-        return jsonResponse({
-          output_text: JSON.stringify({
-            content: "# Daily draft\n\nA memory-systems learning draft.",
-            changeSummary: "Created scheduled research draft",
-            claims: [{
-              claimKey: "attention-paper",
-              statement: "Transformer attention uses query, key, and value projections.",
-              sourceUrl: "https://arxiv.org/abs/1706.03762",
-              sourceTitle: "Attention Is All You Need",
-              sourceType: "paper",
-              evidenceLocator: "Section 3.2",
-              confidence: "high",
-              verificationStatus: "verified",
-              checkedAt: "2026-07-22T00:00:00.000Z",
-            }],
-          }),
-        });
-      }
       if (String(url).includes("/sendMessage")) {
         telegramMessages.push(body);
         return jsonResponse({ ok: true, result: { message_id: 1 } });
@@ -65,7 +43,7 @@ describe("Worker scheduled lesson flow", () => {
     db.close();
   });
 
-  test("creates a lesson, research draft, claim ledger, and Telegram notification", async () => {
+  test("creates a lesson and sends a manual Claude prompt notification", async () => {
     const result = await worker.scheduled({
       cron: "30 23 * * *",
       scheduledTime: "2026-07-21T23:30:00.000Z",
@@ -74,19 +52,16 @@ describe("Worker scheduled lesson flow", () => {
       TELEGRAM_BOT_TOKEN: "123:abc",
       TELEGRAM_ALLOWED_CHAT_ID: "5678",
       DAILY_CURRICULUM_REF: "M07-W18-D1",
-      OPENAI_API_KEY: "sk-test",
-      AI_MODEL: "gpt-5.6",
+      AI_MODE: "manual",
     });
 
     assert.equal(result.lessonDate, "2026-07-22");
-    assert.equal(result.research.lesson.state, "draft_ready");
-    assert.equal(result.research.ledger.claims.length, 1);
-    assert.equal(openAIRequests[0].body.metadata.workflow, "daily_research_draft");
-    assert.match(telegramMessages[0].text, /revision 1/);
+    assert.equal(result.lesson.state, "scheduled");
+    assert.match(telegramMessages[0].text, /\/prompt/);
   });
 });
 
-describe("Worker Telegram AI fallback flow", () => {
+describe("Worker Telegram manual/api hybrid flow", () => {
   let originalFetch;
   let db;
   let requests;
@@ -103,10 +78,10 @@ describe("Worker Telegram AI fallback flow", () => {
       const body = JSON.parse(init.body);
       requests.push({ url: String(url), body });
       if (String(url).endsWith("/messages")) {
-        return jsonResponse({ error: { type: "rate_limit_error", message: "rate limit" } }, 429);
-      }
-      if (String(url).endsWith("/responses")) {
-        return jsonResponse({ output_text: "OpenAI로 fallback된 답변" });
+        return jsonResponse({
+          content: [{ type: "text", text: "Claude API 답변" }],
+          model: "claude-sonnet-5",
+        });
       }
       if (String(url).includes("/sendMessage")) {
         return jsonResponse({ ok: true, result: { message_id: 1 } });
@@ -120,7 +95,7 @@ describe("Worker Telegram AI fallback flow", () => {
     db.close();
   });
 
-  test("answers Telegram Q&A through OpenAI when Claude is rate-limited", async () => {
+  test("uses manual prompt by default and Claude API only for /ask-api", async () => {
     db.exec(`
       INSERT INTO lessons (id, lesson_date, curriculum_ref, state, state_version, created_at, updated_at)
       VALUES ('lesson_1', '2026-07-22', 'M07-W18-D1', 'scheduled', 0, 't0', 't0')
@@ -161,19 +136,51 @@ describe("Worker Telegram AI fallback flow", () => {
       TELEGRAM_ALLOWED_CHAT_ID: "5678",
       ANTHROPIC_API_KEY: "sk-ant-test",
       ANTHROPIC_MODEL: "claude-sonnet-5",
-      OPENAI_API_KEY: "sk-openai-test",
-      AI_MODEL: "gpt-5.6",
+      AI_MODE: "manual",
     });
 
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).action, "question_answered");
-    assert.equal(requests.some((requestLog) => requestLog.url.endsWith("/messages")), true);
-    assert.equal(requests.some((requestLog) => requestLog.url.endsWith("/responses")), true);
+    assert.equal((await response.json()).action, "manual_question_prompt_sent");
+    assert.equal(requests.some((requestLog) => requestLog.url.endsWith("/messages")), false);
     const telegram = requests.find((requestLog) => requestLog.url.includes("/sendMessage"));
-    assert.match(telegram.body.text, /OpenAI로 fallback/);
-    const turn = db.database.prepare("SELECT provider_id, provider_model, provider_attempts_json FROM conversation_turns").get();
-    assert.equal(turn.provider_id, "openai");
-    assert.equal(turn.provider_model, "gpt-5.6");
-    assert.equal(JSON.parse(turn.provider_attempts_json)[0].providerId, "anthropic");
+    assert.match(telegram.body.text, /Claude 웹/);
+
+    requests = [];
+    const apiRequest = new Request("https://example.test/telegram/webhook", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Telegram-Bot-Api-Secret-Token": "secret",
+      },
+      body: JSON.stringify({
+        update_id: 101,
+        message: {
+          message_id: 101,
+          from: { id: 1234 },
+          chat: { id: 5678, type: "private" },
+          text: "/ask-api KV cache 설명해줘",
+        },
+      }),
+    });
+    const apiResponse = await worker.fetch(apiRequest, {
+      DB: db,
+      TELEGRAM_BOT_TOKEN: "123:abc",
+      TELEGRAM_BOT_ID: "study-bot",
+      TELEGRAM_WEBHOOK_SECRET: "secret",
+      TELEGRAM_ALLOWED_USER_ID: "1234",
+      TELEGRAM_ALLOWED_CHAT_ID: "5678",
+      ANTHROPIC_API_KEY: "sk-ant-test",
+      ANTHROPIC_MODEL: "claude-sonnet-5",
+      AI_MODE: "manual",
+    });
+
+    assert.equal(apiResponse.status, 200);
+    assert.equal((await apiResponse.json()).action, "question_answered");
+    assert.equal(requests.some((requestLog) => requestLog.url.endsWith("/messages")), true);
+    const apiTelegram = requests.find((requestLog) => requestLog.url.includes("/sendMessage"));
+    assert.match(apiTelegram.body.text, /Claude API 답변/);
+    const turn = db.database.prepare("SELECT provider_id, provider_model FROM conversation_turns").get();
+    assert.equal(turn.provider_id, "anthropic");
+    assert.equal(turn.provider_model, "claude-sonnet-5");
   });
 });

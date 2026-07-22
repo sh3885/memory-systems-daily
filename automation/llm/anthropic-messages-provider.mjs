@@ -137,7 +137,14 @@ export function createClaudeAnswerProvider({ messagesClient }) {
       ].join("\n"),
       metadata: { workflow: "telegram_qna" },
     });
-    return { answer: response.outputText };
+    return {
+      answer: response.outputText,
+      provider: {
+        id: messagesClient.providerId ?? "anthropic",
+        model: messagesClient.model ?? null,
+        attempts: [],
+      },
+    };
   };
 }
 
@@ -166,6 +173,11 @@ export function createClaudeRevisionProvider({ messagesClient }) {
     return {
       content: response.outputText,
       changeSummary: "Revised by Claude Messages provider from Telegram instruction",
+      provider: {
+        id: messagesClient.providerId ?? "anthropic",
+        model: messagesClient.model ?? null,
+        attempts: [],
+      },
     };
   };
 }

@@ -77,15 +77,14 @@ describe("Anthropic Messages provider", () => {
     const answerProvider = createClaudeAnswerProvider({ messagesClient });
     const revisionProvider = createClaudeRevisionProvider({ messagesClient });
 
-    assert.deepEqual(
-      await answerProvider({
+    const answer = await answerProvider({
         question: "KV cache가 뭐야?",
         lessonDate: "2026-07-22",
         lesson: { curriculumRef: "M07-W18-D1", state: "draft_ready" },
         revision: { revisionNumber: 1, content: "# draft" },
-      }),
-      { answer: "설명 답변" },
-    );
+      });
+    assert.equal(answer.answer, "설명 답변");
+    assert.equal(answer.provider.id, "anthropic");
     assert.equal(requests[0].metadata.workflow, "telegram_qna");
 
     const revision = await revisionProvider({
@@ -95,6 +94,7 @@ describe("Anthropic Messages provider", () => {
     });
     assert.equal(revision.content, "# revised");
     assert.match(revision.changeSummary, /Claude Messages/);
+    assert.equal(revision.provider.id, "anthropic");
     assert.equal(requests[1].metadata.workflow, "telegram_revision");
   });
 });

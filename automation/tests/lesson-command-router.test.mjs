@@ -115,15 +115,16 @@ describe("lesson command router", () => {
     const router = createLessonCommandRouter({
       store,
       telegram: telegram.client,
+      aiMode: "api",
       now: () => "2026-07-22T08:30:00+09:00",
       answerProvider: async ({ question, revision }) => ({
         answer: `답변: ${question}`,
         revisedContent: `${revision.content}\n\n## Q&A 반영\n\n${question}`,
         changeSummary: "Added Q&A clarification",
         provider: {
-          id: "openai",
-          model: "gpt-5.6",
-          attempts: [{ providerId: "anthropic", model: "claude-sonnet-5", reason: "rate_limit", code: "ANTHROPIC_HTTP_ERROR", status: 429 }],
+          id: "anthropic",
+          model: "claude-sonnet-5",
+          attempts: [],
         },
       }),
     });
@@ -138,15 +139,37 @@ describe("lesson command router", () => {
     assert.equal(turns.length, 1);
     assert.equal(turns[0].status, "revised");
     assert.equal(turns[0].appliedRevisionId, updated.currentRevisionId);
-    assert.equal(turns[0].providerId, "openai");
-    assert.equal(turns[0].providerAttempts[0].providerId, "anthropic");
+    assert.equal(turns[0].providerId, "anthropic");
   });
 
-  test("creates a revision from /revise instructions", async () => {
+  test("sends manual prompts and saves pasted Claude drafts", async () => {
     const { lesson } = await createDraftReadyLesson();
     const router = createLessonCommandRouter({
       store,
       telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    assert.equal((await router.onMessage({ update: messageUpdate(20, "/prompt"), actor })).action, "manual_prompt_sent");
+    assert.match(telegram.messages.at(-1).text, /Claude 웹/);
+    assert.equal((await router.onMessage({ update: messageUpdate(21, "KV cache가 뭐야?"), actor })).action, "manual_question_prompt_sent");
+    assert.match(telegram.messages.at(-1).text, /내 질문:/);
+    assert.equal((await router.onMessage({ update: messageUpdate(22, "/revise bandwidth 관점 추가"), actor })).action, "manual_revision_prompt_sent");
+    assert.match(telegram.messages.at(-1).text, /수정 요구사항:/);
+
+    const saved = await router.onMessage({ update: messageUpdate(23, "/draft # Claude 초안\n\n복사해 온 본문"), actor });
+    assert.equal(saved.action, "manual_draft_saved");
+    const updated = await store.getLesson(lesson.id);
+    assert.equal(updated.currentRevisionNumber, 2);
+    assert.equal(updated.state, "discussing");
+  });
+
+  test("creates a revision from /revise instructions in api mode", async () => {
+    const { lesson } = await createDraftReadyLesson();
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      aiMode: "api",
       now: () => "2026-07-22T08:30:00+09:00",
       revisionProvider: async ({ instruction, currentContent }) => ({
         content: `${currentContent}\n\n## 보완\n\n${instruction}`,
@@ -159,6 +182,28 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /revision 2/);
     const updated = await store.getLesson(lesson.id);
     assert.equal(updated.state, "discussing");
+  });
+
+  test("uses Claude API only for explicit /ask-api in manual mode", async () => {
+    await createDraftReadyLesson();
+    let calls = 0;
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+      answerProvider: async ({ question }) => {
+        calls += 1;
+        return {
+          answer: `Claude API 답변: ${question}`,
+          provider: { id: "anthropic", model: "claude-sonnet-5", attempts: [] },
+        };
+      },
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(24, "/ask-api KV cache 설명"), actor });
+    assert.equal(result.action, "question_answered");
+    assert.equal(calls, 1);
+    assert.match(telegram.messages.at(-1).text, /Claude API 답변/);
   });
 
   test("moves a draft to review_ready and sends an approval button", async () => {

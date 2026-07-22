@@ -30,9 +30,9 @@
 - UTC cron에서 KST lesson date를 계산하는 idempotent scheduler
 - Provider 주입형 research pipeline, revision-linked claim ledger, primary-source claim validation
 - Telegram Bot API client, `/today`/`/revise`/`/review`/Q&A command router, scheduled lesson notification wiring
-- OpenAI Responses API 기반 Telegram Q&A/revision provider, optional `web_search`, immutable conversation ledger
-- OpenAI/search-backed scheduled research draft provider, daily draft revision, primary-source claim ledger, Telegram notification
-- Claude Messages API 기반 Q&A/revision provider, Claude rate/quota/context/transient failure 시 OpenAI fallback router
+- Manual AI mode: Telegram `/prompt`, manual question prompt, `/draft`, manual `/revise` prompt
+- Claude-only API opt-in: `/ask-api`, `/revise-api` when `ANTHROPIC_API_KEY` is configured
+- Claude Messages API 기반 Q&A/revision provider와 immutable conversation ledger
 - Conversation ledger provider metadata: final provider/model and failed fallback attempts without storing secrets
 
 ## 다음 구현 단계
@@ -42,7 +42,7 @@
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
 - scheduler와 research 작업의 실패 재시도/lease 정책
-- Cloudflare/GitHub/Telgram/OpenAI/Anthropic secrets 등록 및 실제 Worker 배포
+- Cloudflare/GitHub/Telegram/Anthropic secrets 등록 및 실제 Worker 배포
 
 ## 로컬 상태
 
