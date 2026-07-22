@@ -8,6 +8,7 @@
     "check": "astro check",
     "build": "astro check && astro build",
     "preview": "astro preview",
+    "test:automation": "node --test automation/tests/*.test.mjs",
     "visual": "node scripts/visual-check.mjs"
   },
   "dependencies": {
