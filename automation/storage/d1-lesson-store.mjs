@@ -441,6 +441,76 @@ export class D1LessonStore {
     return mapApproval(row);
   }
 
+  async claimTelegramUpdate({ botId, updateId, leaseMs = 60_000 }) {
+    const bot = requireText(botId, "botId");
+    if (!Number.isSafeInteger(updateId) || updateId < 0) {
+      throw new StoreError("INVALID_INPUT", "updateId must be a non-negative safe integer", { field: "updateId" });
+    }
+    if (!Number.isSafeInteger(leaseMs) || leaseMs <= 0) {
+      throw new StoreError("INVALID_INPUT", "leaseMs must be a positive safe integer", { field: "leaseMs" });
+    }
+
+    const receivedAt = this.now();
+    const claimToken = this.id("telegram");
+    const processingResult = `processing:${claimToken}`;
+    const inserted = await this.db.prepare(`
+      INSERT OR IGNORE INTO processed_telegram_updates (
+        bot_id, update_id, received_at, handled_at, result
+      ) VALUES (?1, ?2, ?3, NULL, ?4)
+    `).bind(bot, updateId, receivedAt, processingResult).run();
+
+    if ((inserted?.meta?.changes ?? 0) === 1) {
+      return { status: "claimed", botId: bot, updateId, claimToken };
+    }
+
+    const existing = await this.db.prepare(`
+      SELECT bot_id, update_id, received_at, handled_at, result
+      FROM processed_telegram_updates
+      WHERE bot_id = ?1 AND update_id = ?2
+    `).bind(bot, updateId).first();
+    if (!existing) {
+      throw new StoreError("UPDATE_CLAIM_LOST", "Telegram update claim disappeared", { botId: bot, updateId });
+    }
+    if (existing.handled_at) {
+      return { status: "duplicate", botId: bot, updateId, handledAt: existing.handled_at, result: existing.result };
+    }
+
+    const receivedMilliseconds = Date.parse(existing.received_at);
+    const nowMilliseconds = Date.parse(receivedAt);
+    const stale = !Number.isFinite(receivedMilliseconds) ||
+      !Number.isFinite(nowMilliseconds) ||
+      receivedMilliseconds <= nowMilliseconds - leaseMs;
+    if (stale) {
+      const reclaimed = await this.db.prepare(`
+        UPDATE processed_telegram_updates
+        SET received_at = ?1, result = ?2
+        WHERE bot_id = ?3 AND update_id = ?4
+          AND handled_at IS NULL AND received_at = ?5
+      `).bind(receivedAt, processingResult, bot, updateId, existing.received_at).run();
+      if ((reclaimed?.meta?.changes ?? 0) === 1) {
+        return { status: "claimed", botId: bot, updateId, claimToken, reclaimed: true };
+      }
+    }
+
+    return { status: "in_progress", botId: bot, updateId };
+  }
+
+  async completeTelegramUpdate({ botId, updateId, claimToken, result }) {
+    const bot = requireText(botId, "botId");
+    const token = requireText(claimToken, "claimToken");
+    const outcome = requireText(result, "result");
+    const handledAt = this.now();
+    const updated = await this.db.prepare(`
+      UPDATE processed_telegram_updates
+      SET handled_at = ?1, result = ?2
+      WHERE bot_id = ?3 AND update_id = ?4 AND result = ?5 AND handled_at IS NULL
+    `).bind(handledAt, outcome, bot, updateId, `processing:${token}`).run();
+    if ((updated?.meta?.changes ?? 0) !== 1) {
+      throw new StoreError("UPDATE_CLAIM_NOT_OWNED", "Telegram update claim is no longer owned", { botId: bot, updateId });
+    }
+    return { botId: bot, updateId, handledAt, result: outcome };
+  }
+
   async startPublishing({ lessonId, approvalId }) {
     const lesson = await this.getLesson(lessonId);
     const approval = await this.getApproval(approvalId);

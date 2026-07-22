@@ -7,6 +7,12 @@ Astro UI
   -> src/data/curriculum.ts
   -> src/pages/*
   -> static build in dist/
+
+Telegram webhook boundary
+  -> secret and allowlist verification
+  -> processed update claim
+  -> message/callback routing
+  -> D1LessonStore approval contract
 ```
 
 현재 `/automation`은 목표 사용자 경험을 보여주는 정적 예시다. 실제 Telegram, LLM, GitHub 배포 연결은 아직 구현하지 않았다.

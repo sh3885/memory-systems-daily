@@ -8,14 +8,6 @@ No task is currently claimed.
 
 ## Ready
 
-### T-010 Telegram webhook skeleton
-
-- Owner: unassigned
-- Role: Automation Engineer
-- Owned paths: to be assigned before work
-- Done when: verified user/chat allowlist, webhook deduplication, and local tests pass
-- Status: ready
-
 ### T-012 Research pipeline
 
 - Owner: unassigned
@@ -42,6 +34,7 @@ No task is currently claimed.
 
 ## Done
 
+- T-010 Telegram webhook skeleton, completed 2026-07-22. See `tasks/handoffs/T-010.md`.
 - T-011 Lesson and revision store, completed 2026-07-22. See `tasks/handoffs/T-011.md`.
 - T-001 Local multi-agent workspace, completed 2026-07-22. See `tasks/handoffs/T-001.md`.
 - Astro example UI, curriculum, sample post, and responsive visual checks

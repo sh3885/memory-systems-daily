@@ -26,11 +26,13 @@
 - 프로젝트 공통 규칙과 역할별 Codex 에이전트 정의
 - 공유 작업 보드와 글/근거 템플릿
 - D1 호환 학습 세션 상태 머신, immutable revision, 승인 challenge 및 stale approval 차단
+- Telegram webhook 경계, secret/allowlist 검증, update deduplication, 승인 callback routing
 
 ## 다음 구현 단계
 
-- Telegram Bot webhook과 사용자 allowlist
 - Cloudflare Worker에서 D1 migration과 저장 계층 연결
+- Telegram API 메시지 송신과 Q&A command router
+- callback token의 서버측 저장/검증 구현
 - LLM 질의응답과 근거 ledger 생성
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
