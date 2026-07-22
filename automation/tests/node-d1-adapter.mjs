@@ -23,6 +23,14 @@ class NodeD1Statement {
       results: [],
     };
   }
+
+  async all() {
+    return {
+      success: true,
+      meta: {},
+      results: this.database.prepare(this.sql).all(...this.parameters),
+    };
+  }
 }
 
 export class NodeD1Database {
@@ -56,4 +64,3 @@ export class NodeD1Database {
     this.database.close();
   }
 }
-

@@ -13,11 +13,19 @@ Telegram webhook boundary
   -> processed update claim
   -> message/callback routing
   -> D1LessonStore approval contract
+
+Research pipeline
+  -> curriculum topic input
+  -> injected research provider
+  -> immutable revision
+  -> revision-linked claim ledger
 ```
 
-현재 `/automation`은 목표 사용자 경험을 보여주는 정적 예시다. 실제 Telegram, LLM, GitHub 배포 연결은 아직 구현하지 않았다.
+현재 `/automation`은 목표 사용자 경험을 향한 백엔드 기반을 단계적으로 구현 중이다. 실제 Telegram 송신, LLM/search provider, GitHub 배포 연결은 아직 구현하지 않았다.
 
 백엔드 기반으로 `automation/domain`의 상태 머신과 `automation/storage`의 D1 호환 저장 계층을 구현했다. 현재 로컬 Node SQLite 통합 테스트까지 완료했으며, Cloudflare Worker와 실제 D1 binding 연결은 다음 단계다.
+
+Research pipeline은 아직 외부 API를 직접 호출하지 않는다. `researchProvider`를 주입받아 초안 본문과 claim 목록을 반환받고, 본문은 immutable revision으로 저장하며 claim은 revision에 연결된 ledger로 기록한다. claim ledger는 primary-source 유형, URL, evidence locator, confidence, verification status를 검증하고 append-only event로 남긴다.
 
 ## 목표 구조
 

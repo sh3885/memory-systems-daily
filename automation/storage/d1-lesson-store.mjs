@@ -1,4 +1,5 @@
 import { assertTransition, canonicalizeContent, createId, sha256Hex } from "../domain/lesson-state.mjs";
+import { claimsHash, normalizeClaims } from "../research/claim-ledger.mjs";
 
 const LESSON_SELECT = `
   SELECT
@@ -121,6 +122,38 @@ function mapApproval(row) {
   };
 }
 
+function mapClaimLedger(row, claims = []) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    revisionId: row.revision_id,
+    operationKey: row.operation_key,
+    claimsHash: row.claims_hash,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    claims,
+  };
+}
+
+function mapClaim(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    ledgerId: row.ledger_id,
+    revisionId: row.revision_id,
+    claimKey: row.claim_key,
+    statement: row.statement,
+    sourceUrl: row.source_url,
+    sourceTitle: row.source_title,
+    sourceType: row.source_type,
+    evidenceLocator: row.evidence_locator,
+    confidence: row.confidence,
+    verificationStatus: row.verification_status,
+    checkedAt: row.checked_at,
+    createdAt: row.created_at,
+  };
+}
+
 function revisionOperationMatches(revision, expected) {
   return Boolean(
     revision &&
@@ -140,6 +173,20 @@ function challengeOperationMatches(challenge, expected) {
     challenge.nonceHash === expected.nonceHash &&
     challenge.expiresAt === expected.expiresAt
   );
+}
+
+function claimLedgerOperationMatches(ledger, expected) {
+  return Boolean(
+    ledger &&
+    ledger.revisionId === expected.revisionId &&
+    ledger.claimsHash === expected.claimsHash &&
+    ledger.createdBy === expected.createdBy
+  );
+}
+
+async function allRows(statement) {
+  const response = await statement.all();
+  return response?.results ?? [];
 }
 
 export class D1LessonStore {
@@ -439,6 +486,107 @@ export class D1LessonStore {
   async findApprovalByChallenge(challengeId) {
     const row = await this.db.prepare("SELECT * FROM approvals WHERE challenge_id = ?1").bind(challengeId).first();
     return mapApproval(row);
+  }
+
+  async recordClaimLedger({ revisionId, claims, createdBy, operationKey }) {
+    const key = requireText(operationKey, "operationKey");
+    const revision = await this.getRevision(requireText(revisionId, "revisionId"));
+    const author = requireText(createdBy, "createdBy");
+    const normalizedClaims = normalizeClaims(claims, { checkedAt: this.now() });
+    const hash = await claimsHash(normalizedClaims);
+    const expectedOperation = { revisionId: revision.id, claimsHash: hash, createdBy: author };
+    const existing = await this.findClaimLedgerByOperationKey(key);
+    if (existing) {
+      if (!claimLedgerOperationMatches(existing, expectedOperation)) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was reused with a different claim ledger payload", {
+          operationKey: key,
+        });
+      }
+      return existing;
+    }
+
+    const committedForRevision = await this.getClaimLedgerByRevision(revision.id);
+    if (committedForRevision) {
+      throw new StoreError("CLAIM_LEDGER_CONFLICT", "Revision already has a claim ledger", {
+        revisionId: revision.id,
+        existingLedgerId: committedForRevision.id,
+      });
+    }
+
+    const ledger = { id: this.id("claim_ledger"), createdAt: this.now(), claimsHash: hash };
+    try {
+      const statements = [
+        this.db.prepare(`
+          INSERT INTO claim_ledgers (
+            id, revision_id, operation_key, claims_hash, created_by, created_at
+          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        `).bind(ledger.id, revision.id, key, ledger.claimsHash, author, ledger.createdAt),
+        ...normalizedClaims.map((claim) => this.db.prepare(`
+          INSERT INTO claims (
+            id, ledger_id, revision_id, claim_key, statement,
+            source_url, source_title, source_type, evidence_locator,
+            confidence, verification_status, checked_at, created_at
+          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+        `).bind(
+          this.id("claim"),
+          ledger.id,
+          revision.id,
+          claim.claimKey,
+          claim.statement,
+          claim.sourceUrl,
+          claim.sourceTitle,
+          claim.sourceType,
+          claim.evidenceLocator,
+          claim.confidence,
+          claim.verificationStatus,
+          claim.checkedAt,
+          ledger.createdAt,
+        )),
+      ];
+      await this.db.batch(statements);
+    } catch (error) {
+      const committed = await this.findClaimLedgerByOperationKey(key);
+      if (claimLedgerOperationMatches(committed, expectedOperation)) return committed;
+      if (committed) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was committed with a different claim ledger payload", {
+          operationKey: key,
+        });
+      }
+      throw new StoreError("CLAIM_LEDGER_CONFLICT", "Claim ledger could not be recorded atomically", {
+        revisionId: revision.id,
+        cause: error.message,
+      });
+    }
+
+    return this.getClaimLedger(ledger.id);
+  }
+
+  async getClaimLedger(id) {
+    const row = await this.db.prepare("SELECT * FROM claim_ledgers WHERE id = ?1").bind(id).first();
+    if (!row) throw new StoreError("CLAIM_LEDGER_NOT_FOUND", `Claim ledger not found: ${id}`, { id });
+    return mapClaimLedger(row, await this.getClaimsForRevision(row.revision_id));
+  }
+
+  async getClaimLedgerByRevision(revisionId) {
+    const row = await this.db.prepare("SELECT * FROM claim_ledgers WHERE revision_id = ?1").bind(revisionId).first();
+    if (!row) return null;
+    return mapClaimLedger(row, await this.getClaimsForRevision(revisionId));
+  }
+
+  async findClaimLedgerByOperationKey(operationKey) {
+    const row = await this.db.prepare("SELECT * FROM claim_ledgers WHERE operation_key = ?1").bind(operationKey).first();
+    if (!row) return null;
+    return mapClaimLedger(row, await this.getClaimsForRevision(row.revision_id));
+  }
+
+  async getClaimsForRevision(revisionId) {
+    const rows = await allRows(this.db.prepare(`
+      SELECT *
+      FROM claims
+      WHERE revision_id = ?1
+      ORDER BY claim_key ASC
+    `).bind(revisionId));
+    return rows.map(mapClaim);
   }
 
   async claimTelegramUpdate({ botId, updateId, leaseMs = 60_000 }) {
