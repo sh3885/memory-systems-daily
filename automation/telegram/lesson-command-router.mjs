@@ -173,6 +173,20 @@ export function createLessonCommandRouter({
       });
       await transitionToDiscussionIfNeeded(store, lesson);
     }
+    if (store.recordConversationTurn) {
+      await store.recordConversationTurn({
+        lessonId: lesson?.id ?? null,
+        revisionId: revision?.id ?? null,
+        appliedRevisionId: updatedRevision?.id ?? null,
+        telegramUpdateId: update.update_id,
+        telegramUserId: actor.userId,
+        telegramChatId: actor.chatId,
+        question,
+        answer,
+        status: updatedRevision ? "revised" : "answered",
+        operationKey: `telegram:conversation:${update.update_id}`,
+      });
+    }
     await send(actor.chatId, answer);
     return { action: updatedRevision ? "question_answered_and_revised" : "question_answered" };
   }

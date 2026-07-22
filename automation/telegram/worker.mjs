@@ -1,5 +1,10 @@
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import { createCloudflareScheduledHandler } from "../scheduler/daily-lesson-scheduler.mjs";
+import {
+  createOpenAIResponsesClient,
+  createStudyAnswerProvider,
+  createStudyRevisionProvider,
+} from "../llm/openai-responses-provider.mjs";
 import { createApprovalPromptService, createLessonCommandRouter } from "./lesson-command-router.mjs";
 import { createTelegramClient } from "./telegram-client.mjs";
 import { createTelegramWebhook } from "./telegram-webhook.mjs";
@@ -7,11 +12,20 @@ import { createTelegramWebhook } from "./telegram-webhook.mjs";
 function createRuntime(env) {
   const store = new D1LessonStore(env.DB);
   const telegram = createTelegramClient({ botToken: env.TELEGRAM_BOT_TOKEN });
-  const router = createLessonCommandRouter({
+  const routerOptions = {
     store,
     telegram,
     approvalPrompt: createApprovalPromptService({ store }),
-  });
+  };
+  if (String(env.OPENAI_API_KEY ?? "").trim()) {
+    const responsesClient = createOpenAIResponsesClient({
+      apiKey: env.OPENAI_API_KEY,
+      model: env.AI_MODEL || "gpt-5.6",
+    });
+    routerOptions.answerProvider = createStudyAnswerProvider({ responsesClient });
+    routerOptions.revisionProvider = createStudyRevisionProvider({ responsesClient });
+  }
+  const router = createLessonCommandRouter(routerOptions);
   return { store, telegram, router };
 }
 

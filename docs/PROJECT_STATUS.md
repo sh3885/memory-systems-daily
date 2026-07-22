@@ -30,12 +30,13 @@
 - UTC cron에서 KST lesson date를 계산하는 idempotent scheduler
 - Provider 주입형 research pipeline, revision-linked claim ledger, primary-source claim validation
 - Telegram Bot API client, `/today`/`/revise`/`/review`/Q&A command router, scheduled lesson notification wiring
+- OpenAI Responses API 기반 Telegram Q&A/revision provider, optional `web_search`, immutable conversation ledger
 
 ## 다음 구현 단계
 
 - Cloudflare Worker에서 D1 migration과 저장 계층 연결
-- 실제 LLM/search provider 연결과 Telegram Q&A 답변 품질 개선
-- conversation ledger와 Q&A 반영 이력 저장
+- research pipeline에 OpenAI/search provider 연결
+- 날짜별 curriculum selector와 lesson topic 확장
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
 - scheduler와 research 작업의 실패 재시도/lease 정책

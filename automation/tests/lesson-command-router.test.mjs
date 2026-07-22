@@ -12,7 +12,10 @@ import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import { NodeD1Database } from "./node-d1-adapter.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const schema = readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8");
+const schema = [
+  readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
+  readFileSync(join(here, "../storage/migrations/0003_conversation_ledger.sql"), "utf8"),
+].join("\n");
 
 const actor = { userId: "1234", chatId: "5678", chatType: "private" };
 
@@ -125,6 +128,10 @@ describe("lesson command router", () => {
     const updated = await store.getLesson(lesson.id);
     assert.equal(updated.state, "discussing");
     assert.equal(updated.currentRevisionNumber, 2);
+    const turns = await store.getConversationTurnsForLesson(lesson.id);
+    assert.equal(turns.length, 1);
+    assert.equal(turns[0].status, "revised");
+    assert.equal(turns[0].appliedRevisionId, updated.currentRevisionId);
   });
 
   test("creates a revision from /revise instructions", async () => {

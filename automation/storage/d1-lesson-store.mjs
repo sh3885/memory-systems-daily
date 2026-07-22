@@ -154,6 +154,24 @@ function mapClaim(row) {
   };
 }
 
+function mapConversationTurn(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    revisionId: row.revision_id,
+    appliedRevisionId: row.applied_revision_id,
+    telegramUpdateId: row.telegram_update_id,
+    telegramUserId: row.telegram_user_id,
+    telegramChatId: row.telegram_chat_id,
+    question: row.question,
+    answer: row.answer,
+    status: row.status,
+    operationKey: row.operation_key,
+    createdAt: row.created_at,
+  };
+}
+
 function revisionOperationMatches(revision, expected) {
   return Boolean(
     revision &&
@@ -181,6 +199,21 @@ function claimLedgerOperationMatches(ledger, expected) {
     ledger.revisionId === expected.revisionId &&
     ledger.claimsHash === expected.claimsHash &&
     ledger.createdBy === expected.createdBy
+  );
+}
+
+function conversationOperationMatches(turn, expected) {
+  return Boolean(
+    turn &&
+    turn.lessonId === expected.lessonId &&
+    turn.revisionId === expected.revisionId &&
+    turn.appliedRevisionId === expected.appliedRevisionId &&
+    turn.telegramUpdateId === expected.telegramUpdateId &&
+    turn.telegramUserId === expected.telegramUserId &&
+    turn.telegramChatId === expected.telegramChatId &&
+    turn.question === expected.question &&
+    turn.answer === expected.answer &&
+    turn.status === expected.status
   );
 }
 
@@ -587,6 +620,109 @@ export class D1LessonStore {
       ORDER BY claim_key ASC
     `).bind(revisionId));
     return rows.map(mapClaim);
+  }
+
+  async recordConversationTurn({
+    lessonId = null,
+    revisionId = null,
+    appliedRevisionId = null,
+    telegramUpdateId,
+    telegramUserId,
+    telegramChatId,
+    question,
+    answer,
+    status = "answered",
+    operationKey,
+  }) {
+    const key = requireText(operationKey, "operationKey");
+    const updateId = Number(telegramUpdateId);
+    if (!Number.isSafeInteger(updateId) || updateId < 0) {
+      throw new StoreError("INVALID_INPUT", "telegramUpdateId must be a non-negative safe integer", {
+        field: "telegramUpdateId",
+      });
+    }
+    const normalizedStatus = requireText(status, "status");
+    if (!["answered", "revised", "failed"].includes(normalizedStatus)) {
+      throw new StoreError("INVALID_INPUT", "status is not allowed", { field: "status", status: normalizedStatus });
+    }
+    const expectedOperation = {
+      lessonId,
+      revisionId,
+      appliedRevisionId,
+      telegramUpdateId: updateId,
+      telegramUserId: requireText(telegramUserId, "telegramUserId"),
+      telegramChatId: requireText(telegramChatId, "telegramChatId"),
+      question: requireText(question, "question"),
+      answer: requireText(answer, "answer"),
+      status: normalizedStatus,
+    };
+    const existing = await this.findConversationTurnByOperationKey(key);
+    if (existing) {
+      if (!conversationOperationMatches(existing, expectedOperation)) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was reused with a different conversation turn", {
+          operationKey: key,
+        });
+      }
+      return existing;
+    }
+
+    const id = this.id("conversation");
+    try {
+      await this.db.prepare(`
+        INSERT INTO conversation_turns (
+          id, lesson_id, revision_id, applied_revision_id,
+          telegram_update_id, telegram_user_id, telegram_chat_id,
+          question, answer, status, operation_key, created_at
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+      `).bind(
+        id,
+        lessonId,
+        revisionId,
+        appliedRevisionId,
+        updateId,
+        expectedOperation.telegramUserId,
+        expectedOperation.telegramChatId,
+        expectedOperation.question,
+        expectedOperation.answer,
+        expectedOperation.status,
+        key,
+        this.now(),
+      ).run();
+    } catch (error) {
+      const committed = await this.findConversationTurnByOperationKey(key);
+      if (conversationOperationMatches(committed, expectedOperation)) return committed;
+      if (committed) {
+        throw new StoreError("OPERATION_KEY_CONFLICT", "Operation key was committed with a different conversation turn", {
+          operationKey: key,
+        });
+      }
+      throw new StoreError("CONVERSATION_CONFLICT", "Conversation turn could not be recorded", {
+        operationKey: key,
+        cause: error.message,
+      });
+    }
+    return this.getConversationTurn(id);
+  }
+
+  async getConversationTurn(id) {
+    const row = await this.db.prepare("SELECT * FROM conversation_turns WHERE id = ?1").bind(id).first();
+    if (!row) throw new StoreError("CONVERSATION_NOT_FOUND", `Conversation turn not found: ${id}`, { id });
+    return mapConversationTurn(row);
+  }
+
+  async findConversationTurnByOperationKey(operationKey) {
+    const row = await this.db.prepare("SELECT * FROM conversation_turns WHERE operation_key = ?1").bind(operationKey).first();
+    return mapConversationTurn(row);
+  }
+
+  async getConversationTurnsForLesson(lessonId) {
+    const rows = await allRows(this.db.prepare(`
+      SELECT *
+      FROM conversation_turns
+      WHERE lesson_id = ?1
+      ORDER BY created_at ASC, telegram_update_id ASC
+    `).bind(lessonId));
+    return rows.map(mapConversationTurn);
   }
 
   async claimTelegramUpdate({ botId, updateId, leaseMs = 60_000 }) {

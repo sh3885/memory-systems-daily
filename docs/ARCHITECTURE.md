@@ -20,15 +20,24 @@ Research pipeline
   -> injected research provider
   -> immutable revision
   -> revision-linked claim ledger
+
+LLM provider
+  -> OpenAI Responses API
+  -> optional web_search
+  -> Telegram Q&A answer provider
+  -> Telegram revision provider
+  -> immutable conversation ledger
 ```
 
-현재 `/automation`은 목표 사용자 경험을 향한 백엔드 기반을 단계적으로 구현 중이다. 실제 LLM/search provider와 GitHub 배포 연결은 아직 구현하지 않았다.
+현재 `/automation`은 목표 사용자 경험을 향한 백엔드 기반을 단계적으로 구현 중이다. Telegram Q&A와 revision에는 OpenAI Responses API provider를 붙일 수 있다. Research pipeline의 primary-source draft generation과 GitHub 배포 연결은 아직 구현하지 않았다.
 
 백엔드 기반으로 `automation/domain`의 상태 머신과 `automation/storage`의 D1 호환 저장 계층을 구현했다. 현재 로컬 Node SQLite 통합 테스트까지 완료했으며, Cloudflare Worker와 실제 D1 binding 연결은 다음 단계다.
 
 Research pipeline은 아직 외부 API를 직접 호출하지 않는다. `researchProvider`를 주입받아 초안 본문과 claim 목록을 반환받고, 본문은 immutable revision으로 저장하며 claim은 revision에 연결된 ledger로 기록한다. claim ledger는 primary-source 유형, URL, evidence locator, confidence, verification status를 검증하고 append-only event로 남긴다.
 
 Telegram command router는 `/today`, `/revise`, `/review`, `/help`와 일반 질문을 처리한다. 일반 질문과 수정은 provider를 주입받는 구조이며, 실제 LLM provider가 없을 때는 안전한 fallback 답변을 보낸다. `/review`는 현재 revision을 `review_ready`로 전환하고 승인 challenge를 만들며, callback payload의 opaque token은 approval challenge의 nonce hash로 검증한다. 승인 callback이 들어오면 webhook은 Telegram의 progress 상태가 남지 않도록 `answerCallbackQuery`를 호출한다.
+
+OpenAI provider는 Responses API를 직접 호출한다. 기본 모델은 `AI_MODEL`로 지정하며 `.env.example`은 현재 OpenAI 모델 가이드에 맞춰 `gpt-5.6`을 기본 예시로 둔다. 최신/외부 자료가 필요한 질문은 Responses API의 `web_search` tool을 켤 수 있다. Telegram 질문과 답변은 `conversation_turns`에 append-only로 저장하고, 답변이 revision으로 반영된 경우 적용된 revision ID를 함께 기록한다.
 
 ## 목표 구조
 
