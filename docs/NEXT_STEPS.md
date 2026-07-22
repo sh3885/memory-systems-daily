@@ -81,7 +81,7 @@ Done when:
 
 Goal: make the learning path match the user's actual job needs: DRAM company engineer studying systems that consume memory.
 
-Status: first-pass cleanup complete. `src/data/curriculum.ts` is readable UTF-8 and now starts with LLM fundamentals plus memory traffic, then moves through CPU/DRAM, DRAM interfaces, GPU/AI acceleration, LLM training/inference, distributed AI, I/O, CXL, emerging memory, and latest LLM trends.
+Status: rich first-month curriculum complete. `src/data/curriculum.ts` now has module-level roadmap, post blueprints, quality gates, and 28 detailed daily lessons with core questions, concepts, calculations/experiments, visual artifacts, post sections, and public source hints.
 
 Tasks:
 
@@ -94,13 +94,13 @@ Tasks:
   - CXL and memory expansion/pooling.
   - PIM, near-memory computing, persistent/emerging memory.
   - Performance modeling: bandwidth, latency, capacity, energy.
-- Define daily post templates by topic type.
-- Add "what I should understand after today" for each lesson. Done at module outcome level; per-day expansion is still future work.
+- Define daily post templates by topic type. Done.
+- Add "what I should understand after today" for each lesson. Done for the first 28 daily lessons; remaining months still need expansion.
 - Add review weeks and synthesis posts.
 
 Done when:
 
-- `src/data/curriculum.ts` reflects a practical 36-week path and the first 2 weeks feel coherent.
+- `src/data/curriculum.ts` reflects a practical 36-week path and the first month can generate non-trivial daily posts with calculations, visuals, and public-source claim checks.
 
 ## P3: Better Daily Telegram UX
 
