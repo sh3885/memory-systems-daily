@@ -579,6 +579,17 @@ export class D1LessonStore {
     return mapApproval(row);
   }
 
+  async getActiveApprovalForLesson(lessonId) {
+    const row = await this.db.prepare(`
+      SELECT *
+      FROM approvals
+      WHERE lesson_id = ?1 AND status = 'active'
+      ORDER BY approved_at DESC
+      LIMIT 1
+    `).bind(lessonId).first();
+    return mapApproval(row);
+  }
+
   async recordClaimLedger({ revisionId, claims, createdBy, operationKey }) {
     const key = requireText(operationKey, "operationKey");
     const revision = await this.getRevision(requireText(revisionId, "revisionId"));
@@ -905,6 +916,17 @@ export class D1LessonStore {
 
   async findPublicationByOperationKey(operationKey) {
     const row = await this.db.prepare("SELECT * FROM publications WHERE operation_key = ?1").bind(operationKey).first();
+    return mapPublication(row);
+  }
+
+  async getLatestPublicationForLesson(lessonId) {
+    const row = await this.db.prepare(`
+      SELECT *
+      FROM publications
+      WHERE lesson_id = ?1
+      ORDER BY completed_at DESC, created_at DESC
+      LIMIT 1
+    `).bind(lessonId).first();
     return mapPublication(row);
   }
 

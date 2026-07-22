@@ -16,6 +16,7 @@ const schema = [
   readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0003_conversation_ledger.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0004_conversation_provider_metadata.sql"), "utf8"),
+  readFileSync(join(here, "../storage/migrations/0005_publications.sql"), "utf8"),
 ].join("\n");
 
 const actor = { userId: "1234", chatId: "5678", chatType: "private" };
@@ -92,6 +93,8 @@ describe("lesson command router", () => {
 
     assert.equal((await router.onMessage({ update: messageUpdate(1, "/help"), actor })).action, "help_sent");
     assert.match(telegram.messages[0].text, /\/today/);
+    assert.match(telegram.messages[0].text, /\/status/);
+    assert.match(telegram.messages[0].text, /\/publish-retry/);
     assert.equal((await router.onMessage({ update: messageUpdate(2, "/today"), actor })).action, "today_missing");
     assert.match(telegram.messages[1].text, /학습 세션이 아직 생성/);
   });
@@ -108,6 +111,22 @@ describe("lesson command router", () => {
     assert.equal(result.action, "today_sent");
     assert.match(telegram.messages[0].text, /M05-W12-D1/);
     assert.match(telegram.messages[0].text, /LLM attention/);
+  });
+
+  test("reports the current lesson status", async () => {
+    await createDraftReadyLesson();
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(30, "/status"), actor });
+    assert.equal(result.action, "status_sent");
+    assert.match(telegram.messages[0].text, /현재 상태/);
+    assert.match(telegram.messages[0].text, /lesson: draft_ready/);
+    assert.match(telegram.messages[0].text, /revision: 1/);
+    assert.match(telegram.messages[0].text, /다음 행동: \/review/);
   });
 
   test("answers questions through an injected provider and can create a revision", async () => {
@@ -153,11 +172,11 @@ describe("lesson command router", () => {
     assert.equal((await router.onMessage({ update: messageUpdate(20, "/prompt"), actor })).action, "manual_prompt_sent");
     assert.match(telegram.messages.at(-1).text, /Claude 웹/);
     assert.equal((await router.onMessage({ update: messageUpdate(21, "KV cache가 뭐야?"), actor })).action, "manual_question_prompt_sent");
-    assert.match(telegram.messages.at(-1).text, /내 질문:/);
+    assert.match(telegram.messages.at(-1).text, /질문:/);
     assert.equal((await router.onMessage({ update: messageUpdate(22, "/revise bandwidth 관점 추가"), actor })).action, "manual_revision_prompt_sent");
     assert.match(telegram.messages.at(-1).text, /수정 요구사항:/);
 
-    const saved = await router.onMessage({ update: messageUpdate(23, "/draft # Claude 초안\n\n복사해 온 본문"), actor });
+    const saved = await router.onMessage({ update: messageUpdate(23, "/draft # Claude 초안\n\n복사한 본문"), actor });
     assert.equal(saved.action, "manual_draft_saved");
     const updated = await store.getLesson(lesson.id);
     assert.equal(updated.currentRevisionNumber, 2);
@@ -224,6 +243,54 @@ describe("lesson command router", () => {
     assert.equal(result.action, "review_ready_with_approval");
     assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
     assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:challenge_3:tok123");
+  });
+
+  test("retries a failed publication through an injected publisher callback", async () => {
+    const { lesson } = await createDraftReadyLesson();
+    await store.transitionLesson(lesson.id, "review_ready", 2);
+    const challenge = await store.issueApprovalChallenge({
+      lessonId: lesson.id,
+      telegramUserId: actor.userId,
+      telegramChatId: actor.chatId,
+      nonce: "retry-token",
+      expiresAt: "2026-07-23T00:00:00.000Z",
+      operationKey: "challenge:retry",
+    });
+    const approval = await store.consumeApprovalChallenge({
+      challengeId: challenge.id,
+      telegramUserId: actor.userId,
+      telegramChatId: actor.chatId,
+      nonce: "retry-token",
+      operationKey: "approval:retry",
+    });
+    await store.startPublishing({ lessonId: lesson.id, approvalId: approval.id });
+    await store.recordPublicationFailure({
+      lessonId: lesson.id,
+      revisionId: approval.revisionId,
+      approvalId: approval.id,
+      operationKey: "publication:failure:retry",
+      provider: "github",
+      errorMessage: "temporary GitHub failure",
+    });
+
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+      publicationRetry: async ({ lesson: retryLesson }) => ({
+        id: "publication_retry_1",
+        lessonId: retryLesson.id,
+        status: "published",
+        filePath: "src/pages/posts/2026-07-22-m05-w12-d1-r1.md",
+        pullRequestUrl: "https://github.test/pr/1",
+        deploymentUrl: "https://memory-systems-daily.pages.dev/posts/2026-07-22-m05-w12-d1-r1/",
+      }),
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(31, "/publish-retry"), actor });
+    assert.equal(result.action, "publish_retry_succeeded");
+    assert.match(telegram.messages[0].text, /게시 재시도 완료/);
+    assert.match(telegram.messages[0].text, /github.test\/pr\/1/);
   });
 
   test("rejects too-long approval callback data before sending a button", async () => {

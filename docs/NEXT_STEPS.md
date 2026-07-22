@@ -27,6 +27,7 @@ Working pieces:
 - GitHub App publishing to `content/daily` branch with PR creation.
 - Public Cloudflare Pages site at `https://memory-systems-daily.pages.dev`.
 - Worker publishing records are configured with `PUBLIC_SITE_URL=https://memory-systems-daily.pages.dev`.
+- Telegram operations commands: `/status`, `/commands`, and `/publish-retry`.
 
 Still unproven in real use:
 
@@ -103,13 +104,15 @@ Done when:
 
 Goal: reduce copy-paste friction while keeping API cost under control.
 
+Status: core operations commands are implemented. `/status`, `/commands`, and `/publish-retry` are available after the Worker redeploy. The remaining UX polish is the checklist message after `/prompt` and optional skip/tomorrow commands if daily operation needs them.
+
 Tasks:
 
-- Add `/status` for current lesson, revision, approval, and publication state.
-- Add `/commands` with shorter Korean instructions.
-- Add `/publish-retry` for failed GitHub publishing.
+- Add `/status` for current lesson, revision, approval, and publication state. Done.
+- Add `/commands` with shorter Korean instructions. Done.
+- Add `/publish-retry` for failed GitHub publishing. Done.
 - Add `/skip` or `/tomorrow` only if daily operation needs it.
-- Improve messages that are currently too technical or broken-looking.
+- Improve messages that are currently too technical or broken-looking. Partially done for Telegram command router.
 - Add a "today's checklist" message after `/prompt`.
 
 Done when:
@@ -192,9 +195,9 @@ Done when:
 The next autonomous batch should be:
 
 1. Run the real Telegram end-to-end flow and fix any issue.
-2. Add `/status` and `/publish-retry`.
-3. Confirm the first approval-button publication records the Cloudflare Pages public URL.
-4. Clean up the first two weeks of curriculum.
-5. Fix visible Korean encoding artifacts in the UI/messages.
+2. Confirm the first approval-button publication records the Cloudflare Pages public URL.
+3. Clean up the first two weeks of curriculum.
+4. Fix visible Korean encoding artifacts in the UI/messages outside the Telegram command router.
+5. Add the `/prompt` checklist message if the daily flow still feels too copy-paste heavy.
 
 This batch should be done with one final summary to the user, unless external account approval or a public hosting choice is required.

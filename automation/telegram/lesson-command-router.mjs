@@ -12,16 +12,18 @@ export class LessonRouterError extends Error {
 
 const HELP_TEXT = [
   "사용 가능한 명령:",
-  "/today - 오늘 학습 상태와 초안을 확인",
-  "/prompt - Claude 웹에 붙여넣을 오늘 초안 작성 프롬프트 생성",
-  "/draft 초안 본문 - Claude 웹 결과를 현재 revision으로 저장",
-  "/revise 수정 내용 - Claude 웹에 붙여넣을 수정 프롬프트 생성",
-  "/ask-api 질문 - 이번 질문만 Claude API로 답변",
-  "/revise-api 수정 내용 - 이번 수정만 Claude API로 revision 저장",
-  "/review - 현재 revision을 검토 준비 상태로 바꾸고 승인 버튼을 요청",
-  "/help - 명령 보기",
+  "/today - 오늘 lesson과 현재 초안 미리보기",
+  "/status - lesson, revision, approval, publication 상태 확인",
+  "/prompt - Claude 웹에 붙여넣을 초안 작성 프롬프트 생성",
+  "/draft <Markdown> - Claude 웹 결과를 현재 revision으로 저장",
+  "/revise <요청> - Claude 웹에 붙여넣을 수정 프롬프트 생성",
+  "/review - 현재 revision을 검토 상태로 바꾸고 승인 버튼 받기",
+  "/publish-retry - GitHub 게시 실패 상태를 다시 시도",
+  "/ask-api <질문> - 이번 질문만 Claude API로 답변",
+  "/revise-api <요청> - 이번 수정만 Claude API로 revision 저장",
+  "/help 또는 /commands - 이 도움말 보기",
   "",
-  "기본 모드는 manual이다. 명령이 아닌 문장은 Claude 웹에 붙여넣을 질문 프롬프트로 처리한다.",
+  "기본은 manual mode입니다. 일반 문장은 Claude 웹에 붙여넣을 질문 프롬프트로 처리합니다.",
 ].join("\n");
 
 function requireText(value, field) {
@@ -64,7 +66,7 @@ function approvalKeyboard({ challengeId, token }) {
   }
   return {
     inline_keyboard: [[
-      { text: "승인하고 배포 준비", callback_data: callbackData },
+      { text: "승인하고 게시", callback_data: callbackData },
     ]],
   };
 }
@@ -78,13 +80,13 @@ function buildDraftPrompt({ lessonDate, lesson }) {
     "나는 DRAM 회사 엔지니어이고, 공개 정보만 사용해서 시스템 관점의 학습 블로그를 작성하려고 한다.",
     "",
     `오늘 날짜: ${lessonDate}`,
-    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미지정"}`,
+    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미정"}`,
     "",
     "요구사항:",
     "1. 한국어 Markdown 블로그 초안을 작성한다.",
     "2. 핵심 개념, 시스템 관점, 메모리 traffic 관점, 병목 분석을 포함한다.",
     "3. 확정된 사실, 해석, 추정을 구분한다.",
-    "4. 공개 자료가 아닌 회사/고객/제품/로드맵/벤치마크 정보는 절대 넣지 않는다.",
+    "4. 공개 정보가 아닌 회사/고객/제품/로드맵/벤치마크 정보는 넣지 않는다.",
     "5. 마지막에 주요 claim과 공개 출처 후보를 bullet로 정리한다.",
     "",
     "출력 형식:",
@@ -105,16 +107,16 @@ function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
     "",
     "[복사 시작]",
     "너는 LLM 시스템과 메모리 아키텍처를 함께 설명하는 한국어 튜터다.",
-    "답변은 한국어로 하고, 확정된 사실과 해석을 구분해라.",
+    "답변은 한국어로 하고, 확정된 사실과 해석을 구분하라.",
     "공개 정보만 사용하고 회사 내부 정보는 추정하거나 포함하지 마라.",
     "",
     `오늘 날짜: ${lessonDate}`,
-    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미지정"}`,
+    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미정"}`,
     "",
     "현재 초안:",
     revision?.content ?? "(현재 초안 없음)",
     "",
-    "내 질문:",
+    "질문:",
     question,
     "[복사 끝]",
   ].join("\n");
@@ -130,7 +132,7 @@ function buildRevisionPrompt({ instruction, lesson, revision }) {
     "전체 Markdown 문서만 출력하고, 코드블록으로 감싸지 마라.",
     "공개 정보가 아닌 회사/고객/제품/로드맵/벤치마크 정보는 추가하지 마라.",
     "",
-    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미지정"}`,
+    `커리큘럼: ${lesson?.curriculumRef ?? "아직 미정"}`,
     "",
     "수정 요구사항:",
     instruction,
@@ -177,6 +179,27 @@ async function transitionToReviewReady(store, lesson) {
   });
 }
 
+function nextActionFor({ lesson, revision, publication }) {
+  if (!lesson) return "08:30 KST 스케줄러가 lesson을 만들었는지 확인하거나 /today를 다시 확인";
+  if (!revision) return "/prompt로 초안 프롬프트를 만들고 Claude 웹 결과를 /draft로 저장";
+  if (lesson.state === "draft_ready" || lesson.state === "discussing") return "/review로 승인 버튼 생성";
+  if (lesson.state === "review_ready") return "텔레그램 승인 버튼을 눌러 게시 진행";
+  if (lesson.state === "approved" || lesson.state === "publish_failed") return "/publish-retry로 GitHub 게시 재시도";
+  if (lesson.state === "published" || publication?.status === "published") return "오늘 포스팅 완료";
+  return "/today로 초안 내용을 확인하고 필요한 질문이나 수정을 진행";
+}
+
+function publicationLines(publication) {
+  if (!publication) return ["publication: 없음"];
+  return [
+    `publication: ${publication.status}`,
+    publication.filePath ? `file: ${publication.filePath}` : null,
+    publication.pullRequestUrl ? `PR: ${publication.pullRequestUrl}` : null,
+    publication.deploymentUrl ? `URL: ${publication.deploymentUrl}` : null,
+    publication.errorMessage ? `error: ${publication.errorMessage}` : null,
+  ].filter(Boolean);
+}
+
 export function createApprovalPromptService({
   store,
   now = () => new Date().toISOString(),
@@ -212,6 +235,7 @@ export function createLessonCommandRouter({
     changeSummary: "Applied Telegram revision instruction",
   }),
   approvalPrompt,
+  publicationRetry = null,
   aiMode = "manual",
   now = () => new Date().toISOString(),
   timeZone = DEFAULT_TIME_ZONE,
@@ -238,9 +262,40 @@ export function createLessonCommandRouter({
       `Revision: ${lesson.currentRevisionNumber || 0}`,
     ];
     if (revision) lines.push("", preview(revision.content));
-    else lines.push("", "아직 초안 revision이 없어. research pipeline 실행이 필요해.");
+    else lines.push("", "아직 초안 revision이 없어. /prompt로 Claude 웹용 초안 프롬프트를 만들 수 있어.");
     await send(actor.chatId, lines.join("\n"));
     return { action: "today_sent", lessonId: lesson.id };
+  }
+
+  async function handleStatus({ actor }) {
+    const { lessonDate, lesson } = await currentLesson(store, now, timeZone);
+    if (!lesson) {
+      await send(actor.chatId, [
+        "현재 상태",
+        `날짜: ${lessonDate}`,
+        "lesson: 없음",
+        "다음 행동: 08:30 KST 스케줄러가 실행됐는지 확인하거나 /today를 다시 보내줘.",
+      ].join("\n"));
+      return { action: "status_missing" };
+    }
+
+    const [revision, approval, publication] = await Promise.all([
+      currentRevision(store, lesson),
+      store.getActiveApprovalForLesson ? store.getActiveApprovalForLesson(lesson.id) : null,
+      store.getLatestPublicationForLesson ? store.getLatestPublicationForLesson(lesson.id) : null,
+    ]);
+
+    await send(actor.chatId, [
+      "현재 상태",
+      `날짜: ${lessonDate}`,
+      `커리큘럼: ${lesson.curriculumRef}`,
+      `lesson: ${lesson.state} (v${lesson.stateVersion})`,
+      `revision: ${lesson.currentRevisionNumber || 0}${revision ? ` / ${revision.id}` : ""}`,
+      `approval: ${approval ? `${approval.status} / ${approval.id}` : "없음"}`,
+      ...publicationLines(publication),
+      `다음 행동: ${nextActionFor({ lesson, revision, publication })}`,
+    ].join("\n"));
+    return { action: "status_sent", lessonId: lesson.id };
   }
 
   async function handlePrompt({ actor }) {
@@ -318,7 +373,7 @@ export function createLessonCommandRouter({
   async function handleManualRevise({ actor, instruction }) {
     const { lesson } = await currentLesson(store, now, timeZone);
     if (!lesson) {
-      await send(actor.chatId, "수정할 오늘 학습 세션이 아직 없어. 먼저 08:30 스케줄러나 /today 상태를 확인해줘.");
+      await send(actor.chatId, "수정할 오늘 학습 세션이 아직 없어. 먼저 /today 상태를 확인해줘.");
       return { action: "manual_revise_missing_lesson" };
     }
     const revision = await currentRevision(store, lesson);
@@ -333,7 +388,7 @@ export function createLessonCommandRouter({
   async function handleDraft({ update, actor, content }) {
     const { lesson } = await currentLesson(store, now, timeZone);
     if (!lesson) {
-      await send(actor.chatId, "저장할 오늘 학습 세션이 아직 없어. 먼저 스케줄러가 lesson을 만들도록 하거나 DAILY_CURRICULUM_REF 설정을 확인해줘.");
+      await send(actor.chatId, "저장할 오늘 학습 세션이 아직 없어. 스케줄러가 lesson을 만들었는지 확인해줘.");
       return { action: "draft_missing_lesson" };
     }
     const nextRevision = await store.appendRevision({
@@ -364,10 +419,45 @@ export function createLessonCommandRouter({
       actor,
       operationKey: `telegram:challenge:${update.update_id}`,
     });
-    await send(actor.chatId, "검토 준비가 끝났어. 내용을 확인한 뒤 승인 버튼을 눌러줘.", {
+    await send(actor.chatId, "검토 준비가 끝났어. 내용을 확인했다면 승인 버튼을 눌러줘.", {
       replyMarkup: approvalKeyboard({ challengeId: prompt.challenge.id, token: prompt.token }),
     });
     return { action: "review_ready_with_approval", challengeId: prompt.challenge.id };
+  }
+
+  async function handlePublishRetry({ actor }) {
+    const { lesson } = await currentLesson(store, now, timeZone);
+    if (!lesson) {
+      await send(actor.chatId, "게시를 재시도할 오늘 학습 세션이 아직 없어.");
+      return { action: "publish_retry_missing_lesson" };
+    }
+    if (!["approved", "publish_failed"].includes(lesson.state)) {
+      await send(actor.chatId, `현재 상태는 ${lesson.state}야. 게시 재시도는 approved 또는 publish_failed 상태에서만 가능해.`);
+      return { action: "publish_retry_not_ready", state: lesson.state };
+    }
+    if (!publicationRetry) {
+      await send(actor.chatId, "게시 재시도 기능이 Worker에 아직 설정되지 않았어. GitHub App 설정을 확인해야 해.");
+      return { action: "publish_retry_unconfigured" };
+    }
+
+    try {
+      const publication = await publicationRetry({ lesson, actor });
+      await send(actor.chatId, [
+        "게시 재시도 완료.",
+        `publication=${publication.id}`,
+        publication.filePath ? `file=${publication.filePath}` : null,
+        publication.pullRequestUrl ? `PR=${publication.pullRequestUrl}` : null,
+        publication.deploymentUrl ? `URL=${publication.deploymentUrl}` : null,
+      ].filter(Boolean).join("\n"));
+      return { action: "publish_retry_succeeded", publicationId: publication.id };
+    } catch (error) {
+      await send(actor.chatId, [
+        "게시 재시도 실패.",
+        `error=${error?.message ?? String(error)}`,
+        "원인을 고친 뒤 /publish-retry를 다시 보내면 돼.",
+      ].join("\n"));
+      return { action: "publish_retry_failed", error: error?.message ?? String(error) };
+    }
   }
 
   return {
@@ -382,12 +472,14 @@ export function createLessonCommandRouter({
         if (mode === "api") return handleQuestion({ update, actor, question: text });
         return handleManualQuestion({ update, actor, question: text });
       }
-      if (command.command === "/start" || command.command === "/help") {
+      if (command.command === "/start" || command.command === "/help" || command.command === "/commands") {
         await send(actor.chatId, HELP_TEXT);
         return { action: "help_sent" };
       }
       if (command.command === "/today") return handleToday({ update, actor });
+      if (command.command === "/status") return handleStatus({ update, actor });
       if (command.command === "/prompt") return handlePrompt({ update, actor });
+      if (command.command === "/publish-retry") return handlePublishRetry({ update, actor });
       if (command.command === "/draft") {
         if (!command.argument) {
           await send(actor.chatId, "사용법: /draft Claude 웹에서 받은 Markdown 초안을 붙여넣어줘.");
@@ -430,7 +522,7 @@ export function createLessonCommandRouter({
           showAlert: false,
         });
       }
-      await send(actor.chatId, "처리할 수 없는 버튼이야. /today로 현재 상태를 확인해줘.");
+      await send(actor.chatId, "처리할 수 없는 버튼이야. /status로 현재 상태를 확인해줘.");
       return { action: "unknown_callback" };
     },
   };

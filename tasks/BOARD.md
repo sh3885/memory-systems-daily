@@ -4,12 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
-No task is currently claimed.
-
 ## Ready
 
 ## Done
 
+- T-025 Telegram operations UX, completed 2026-07-22. See `tasks/handoffs/T-025.md`.
 - T-024 Public blog hosting, completed 2026-07-22. See `tasks/handoffs/T-024.md`.
 - T-023 Forward roadmap document, completed 2026-07-22. See `tasks/handoffs/T-023.md`.
 - T-013 Approval and GitHub publishing, completed 2026-07-22. See `tasks/handoffs/T-013.md`.

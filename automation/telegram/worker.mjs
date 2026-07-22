@@ -36,19 +36,6 @@ function createRuntime(env) {
         model: env.ANTHROPIC_MODEL || "claude-sonnet-5",
       })
     : null;
-
-  const routerOptions = {
-    store,
-    telegram,
-    approvalPrompt: createApprovalPromptService({ store }),
-    aiMode: env.AI_MODE || "manual",
-  };
-  if (anthropicClient) {
-    routerOptions.answerProvider = createClaudeAnswerProvider({ messagesClient: anthropicClient });
-    routerOptions.revisionProvider = createClaudeRevisionProvider({ messagesClient: anthropicClient });
-  }
-
-  const router = createLessonCommandRouter(routerOptions);
   const publicationService = githubPublishingConfigured(env)
     ? createPublicationService({
         store,
@@ -64,6 +51,26 @@ function createRuntime(env) {
         publicSiteUrl: env.PUBLIC_SITE_URL,
       })
     : null;
+
+  const routerOptions = {
+    store,
+    telegram,
+    approvalPrompt: createApprovalPromptService({ store }),
+    aiMode: env.AI_MODE || "manual",
+    publicationRetry: publicationService
+      ? async ({ lesson }) => {
+          const approval = await store.getActiveApprovalForLesson(lesson.id);
+          if (!approval) throw new Error("No active approval is available for publish retry.");
+          return publicationService.publishApprovedRevision({ approval });
+        }
+      : null,
+  };
+  if (anthropicClient) {
+    routerOptions.answerProvider = createClaudeAnswerProvider({ messagesClient: anthropicClient });
+    routerOptions.revisionProvider = createClaudeRevisionProvider({ messagesClient: anthropicClient });
+  }
+
+  const router = createLessonCommandRouter(routerOptions);
 
   return { store, telegram, router, publicationService };
 }
@@ -106,7 +113,7 @@ async function publishAndNotify({ publicationService, telegram, actor, approval 
         "Approval was recorded, but publishing failed.",
         `approval=${approval.id}`,
         `error=${error?.message ?? String(error)}`,
-        "Fix the cause, then revise and run /review again.",
+        "Fix the cause, then run /publish-retry.",
       ].join("\n"),
     });
     return { action: "publication_failed", error: error?.message ?? String(error) };
