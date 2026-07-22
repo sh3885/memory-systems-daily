@@ -2,22 +2,38 @@ import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import { createResearchPipeline } from "../research/research-pipeline.mjs";
 import { createCloudflareScheduledHandler } from "../scheduler/daily-lesson-scheduler.mjs";
 import {
+  createAnthropicMessagesClient,
+  createClaudeAnswerProvider,
+  createClaudeRevisionProvider,
+} from "../llm/anthropic-messages-provider.mjs";
+import {
   createOpenAIResponsesClient,
   createStudyAnswerProvider,
   createStudyResearchProvider,
   createStudyRevisionProvider,
 } from "../llm/openai-responses-provider.mjs";
+import { createProviderFallback } from "../llm/provider-fallback-router.mjs";
 import { createApprovalPromptService, createLessonCommandRouter } from "./lesson-command-router.mjs";
 import { createTelegramClient } from "./telegram-client.mjs";
 import { createTelegramWebhook } from "./telegram-webhook.mjs";
 
+function configured(value) {
+  return String(value ?? "").trim();
+}
+
 function createRuntime(env) {
   const store = new D1LessonStore(env.DB);
   const telegram = createTelegramClient({ botToken: env.TELEGRAM_BOT_TOKEN });
-  const responsesClient = String(env.OPENAI_API_KEY ?? "").trim()
+  const responsesClient = configured(env.OPENAI_API_KEY)
     ? createOpenAIResponsesClient({
         apiKey: env.OPENAI_API_KEY,
         model: env.AI_MODEL || "gpt-5.6",
+      })
+    : null;
+  const anthropicClient = configured(env.ANTHROPIC_API_KEY)
+    ? createAnthropicMessagesClient({
+        apiKey: env.ANTHROPIC_API_KEY,
+        model: env.ANTHROPIC_MODEL || "claude-sonnet-5",
       })
     : null;
   const routerOptions = {
@@ -25,9 +41,37 @@ function createRuntime(env) {
     telegram,
     approvalPrompt: createApprovalPromptService({ store }),
   };
+  const answerProviders = [];
+  const revisionProviders = [];
+  if (anthropicClient) {
+    answerProviders.push({
+      id: "anthropic",
+      model: anthropicClient.model,
+      fn: createClaudeAnswerProvider({ messagesClient: anthropicClient }),
+    });
+    revisionProviders.push({
+      id: "anthropic",
+      model: anthropicClient.model,
+      fn: createClaudeRevisionProvider({ messagesClient: anthropicClient }),
+    });
+  }
   if (responsesClient) {
-    routerOptions.answerProvider = createStudyAnswerProvider({ responsesClient });
-    routerOptions.revisionProvider = createStudyRevisionProvider({ responsesClient });
+    answerProviders.push({
+      id: "openai",
+      model: env.AI_MODEL || "gpt-5.6",
+      fn: createStudyAnswerProvider({ responsesClient }),
+    });
+    revisionProviders.push({
+      id: "openai",
+      model: env.AI_MODEL || "gpt-5.6",
+      fn: createStudyRevisionProvider({ responsesClient }),
+    });
+  }
+  if (answerProviders.length > 0) {
+    routerOptions.answerProvider = createProviderFallback({ providers: answerProviders });
+  }
+  if (revisionProviders.length > 0) {
+    routerOptions.revisionProvider = createProviderFallback({ providers: revisionProviders });
   }
   const router = createLessonCommandRouter(routerOptions);
   const researchPipeline = responsesClient

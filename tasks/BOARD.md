@@ -18,6 +18,7 @@ No task is currently claimed.
 
 ## Done
 
+- T-018 AI provider fallback router, completed 2026-07-22. See `tasks/handoffs/T-018.md`.
 - T-017 OpenAI research draft provider, completed 2026-07-22. See `tasks/handoffs/T-017.md`.
 - T-016 LLM provider and conversation ledger, completed 2026-07-22. See `tasks/handoffs/T-016.md`.
 - T-015 Telegram messaging and Q&A router, completed 2026-07-22. See `tasks/handoffs/T-015.md`.

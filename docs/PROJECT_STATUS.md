@@ -32,6 +32,7 @@
 - Telegram Bot API client, `/today`/`/revise`/`/review`/Q&A command router, scheduled lesson notification wiring
 - OpenAI Responses API 기반 Telegram Q&A/revision provider, optional `web_search`, immutable conversation ledger
 - OpenAI/search-backed scheduled research draft provider, daily draft revision, primary-source claim ledger, Telegram notification
+- Claude Messages API 기반 Q&A/revision provider, Claude rate/quota/context/transient failure 시 OpenAI fallback router
 
 ## 다음 구현 단계
 
@@ -40,6 +41,7 @@
 - 승인 callback과 revision 잠금
 - 승인 후 GitHub commit/PR 및 Astro 배포
 - scheduler와 research 작업의 실패 재시도/lease 정책
+- provider fallback 사용량/실패 사유를 conversation ledger에 더 세밀하게 기록
 
 ## 로컬 상태
 
