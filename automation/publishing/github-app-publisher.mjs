@@ -120,6 +120,7 @@ export function createGitHubAppPublisher({
   repo,
   branch,
   fetchFn = fetch,
+  fetchTimeoutMs = 15_000,
   now = () => Date.now(),
   apiBaseUrl = "https://api.github.com",
   jwtFactory = signJwt,
@@ -132,17 +133,34 @@ export function createGitHubAppPublisher({
     repo: required(repo, "GITHUB_REPOSITORY"),
     branch: required(branch, "GITHUB_CONTENT_BRANCH"),
   };
+  const requestTimeoutMs = Math.max(1, Number(fetchTimeoutMs) || 15_000);
 
   async function github(path, options = {}) {
-    const response = await fetchFn(`${apiBaseUrl}${path}`, {
-      ...options,
-      headers: {
-        accept: "application/vnd.github+json",
-        "user-agent": "memory-systems-daily-bot",
-        "x-github-api-version": "2022-11-28",
-        ...(options.headers ?? {}),
-      },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+    let response;
+    try {
+      response = await fetchFn(`${apiBaseUrl}${path}`, {
+        ...options,
+        headers: {
+          accept: "application/vnd.github+json",
+          "user-agent": "memory-systems-daily-bot",
+          "x-github-api-version": "2022-11-28",
+          ...(options.headers ?? {}),
+        },
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new GitHubPublishError("GITHUB_TIMEOUT", `GitHub API request timed out after ${requestTimeoutMs}ms`, {
+          path,
+          timeoutMs: requestTimeoutMs,
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     const text = await response.text();
     const body = parseJsonResponse(text, { path, status: response.status });
     if (!response.ok) {

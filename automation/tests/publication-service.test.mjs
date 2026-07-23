@@ -393,4 +393,25 @@ describe("GitHub App publisher", () => {
         error.details.bodyText.includes("Request forbidden"),
     );
   });
+
+  test("bounds a hung GitHub API request", async () => {
+    const publisher = createGitHubAppPublisher({
+      appId: "1",
+      privateKey: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+      installationId: "42",
+      owner: "acme",
+      repo: "memory",
+      branch: "main",
+      fetchTimeoutMs: 5,
+      fetchFn: (_url, init) => new Promise((_, reject) => {
+        init.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }),
+      jwtFactory: async () => "jwt",
+    });
+
+    await assert.rejects(
+      () => publisher.publishPost({ path: "src/pages/posts/post.md", content: "# Post", message: "Publish", title: "Post", body: "" }),
+      (error) => error instanceof Error && error.name === "GitHubPublishError" && error.code === "GITHUB_TIMEOUT",
+    );
+  });
 });

@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-058 Recover hung GitHub publishing requests in the production Telegram Worker.
+  - Owner: root agent
+  - Owned paths: `automation/publishing/`, `automation/storage/`, `automation/telegram/`, `automation/tests/`, `tasks/active/T-058.md`, `tasks/handoffs/T-058.md`, `tasks/BOARD.md`
+  - Done when: external GitHub requests are bounded, abandoned publish processing can be retried, and D3 is recovered or given a clear failure result.
+
 ## Ready
 
 
