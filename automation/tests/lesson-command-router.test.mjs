@@ -462,6 +462,24 @@ describe("lesson command router", () => {
     assert.match(telegram.messages.at(-1).text, /revision 1/);
   });
 
+  test("does not create another revision when the same Markdown arrives again", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+    const content = "/draft # Duplicate draft\n\nBody";
+
+    const first = await router.onMessage({ update: messageUpdate(71, content), actor });
+    const duplicate = await router.onMessage({ update: messageUpdate(72, content), actor });
+
+    assert.equal(first.action, "manual_draft_saved");
+    assert.equal(duplicate.action, "manual_draft_unchanged");
+    assert.equal((await store.getLesson(lesson.id)).currentRevisionNumber, 1);
+    assert.match(telegram.messages.at(-1).text, /새 revision은 만들지 않았어/);
+  });
+
   test("saves an uploaded markdown document as the current draft", async () => {
     const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
     const router = createLessonCommandRouter({

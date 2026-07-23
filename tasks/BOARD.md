@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-057 Prevent duplicate Markdown revision creation from repeated Telegram delivery.
+  - Owner: root agent
+  - Owned paths: `automation/storage/`, `automation/telegram/`, `automation/tests/`, `tasks/active/T-057.md`, `tasks/handoffs/T-057.md`, `tasks/BOARD.md`
+  - Done when: identical Markdown content cannot create duplicate revisions and live bot delivery is verified.
+
 ## Ready
 
 

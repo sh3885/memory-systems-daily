@@ -1,5 +1,6 @@
 import { buildDailyLessonPromptContext, nextCurriculumRef } from "../content/daily-lesson-prompts.mjs";
 import { assertDraftContent, DraftQualityError } from "../content/draft-quality.mjs";
+import { sha256Hex } from "../domain/lesson-state.mjs";
 import { dateInTimeZone, DEFAULT_TIME_ZONE } from "../scheduler/daily-lesson-scheduler.mjs";
 import { StoreError } from "../storage/d1-lesson-store.mjs";
 
@@ -191,6 +192,30 @@ async function ensureDraftStateAfterManualDraft(store, lesson) {
     // Another upload may have already performed the same state promotion.
     if (["draft_ready", "discussing", "review_ready"].includes(latest.state)) return latest;
     return transitionAfterManualDraft(store, latest);
+  }
+}
+
+async function saveManualDraftRevision(store, { lesson, content, updateId }) {
+  const contentHash = await sha256Hex(content);
+  const latest = await store.getLesson(lesson.id);
+  if (latest.currentRevisionId && latest.currentContentHash === contentHash) {
+    return { revision: await store.getRevision(latest.currentRevisionId), reused: true };
+  }
+
+  try {
+    const revision = await store.appendRevision({
+      lessonId: lesson.id,
+      content,
+      createdBy: "manual-chat-upload",
+      changeSummary: "Saved final Markdown uploaded from Telegram",
+      operationKey: `telegram:manual-draft:${updateId}`,
+    });
+    return { revision, reused: false };
+  } catch (error) {
+    if (!(error instanceof StoreError) || error.code !== "REVISION_CONFLICT") throw error;
+    const concurrent = await store.getLesson(lesson.id);
+    if (!concurrent.currentRevisionId || concurrent.currentContentHash !== contentHash) throw error;
+    return { revision: await store.getRevision(concurrent.currentRevisionId), reused: true };
   }
 }
 
@@ -466,14 +491,16 @@ export function createLessonCommandRouter({
       }
       throw error;
     }
-    const nextRevision = await store.appendRevision({
-      lessonId: lesson.id,
+    const { revision: nextRevision, reused } = await saveManualDraftRevision(store, {
+      lesson,
       content: requireText(content, "content"),
-      createdBy: "manual-chat-upload",
-      changeSummary: "Saved final Markdown uploaded from Telegram",
-      operationKey: `telegram:manual-draft:${update.update_id}`,
+      updateId: update.update_id,
     });
     await ensureDraftStateAfterManualDraft(store, lesson);
+    if (reused) {
+      await send(actor.chatId, `같은 Markdown이 이미 revision ${nextRevision.revisionNumber}로 저장되어 있어. 새 revision은 만들지 않았어. /review로 검토 단계로 넘기면 돼.`);
+      return { action: "manual_draft_unchanged", revisionId: nextRevision.id };
+    }
     await send(actor.chatId, `최종 Markdown을 revision ${nextRevision.revisionNumber}로 저장했어. /today로 확인하거나 /review로 검토 단계로 넘길 수 있어.`);
     return { action: "manual_draft_saved", revisionId: nextRevision.id };
   }
