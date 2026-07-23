@@ -182,12 +182,33 @@ async function transitionToDiscussionIfNeeded(store, lesson) {
   return latest;
 }
 
+async function transitionAfterManualDraft(store, lesson) {
+  const latest = await store.getLesson(lesson.id);
+  if (latest.state === "scheduled") {
+    const researching = await store.transitionLesson(latest.id, "researching", latest.stateVersion);
+    return store.transitionLesson(researching.id, "draft_ready", researching.stateVersion);
+  }
+  if (latest.state === "researching") {
+    return store.transitionLesson(latest.id, "draft_ready", latest.stateVersion);
+  }
+  return transitionToDiscussionIfNeeded(store, latest);
+}
+
 async function transitionToReviewReady(store, lesson) {
   const latest = await store.getLesson(lesson.id);
   if (!latest.currentRevisionId) {
     throw new LessonRouterError("NO_REVISION", "No current revision exists for review", { lessonId: latest.id });
   }
   if (latest.state === "review_ready") return latest;
+  if (latest.state === "scheduled") {
+    const researching = await store.transitionLesson(latest.id, "researching", latest.stateVersion);
+    const draftReady = await store.transitionLesson(researching.id, "draft_ready", researching.stateVersion);
+    return store.transitionLesson(draftReady.id, "review_ready", draftReady.stateVersion);
+  }
+  if (latest.state === "researching") {
+    const draftReady = await store.transitionLesson(latest.id, "draft_ready", latest.stateVersion);
+    return store.transitionLesson(draftReady.id, "review_ready", draftReady.stateVersion);
+  }
   if (latest.state === "draft_ready" || latest.state === "discussing") {
     return store.transitionLesson(latest.id, "review_ready", latest.stateVersion);
   }
@@ -416,7 +437,7 @@ export function createLessonCommandRouter({
       changeSummary: "Saved manual Claude web draft from Telegram",
       operationKey: `telegram:manual-draft:${update.update_id}`,
     });
-    await transitionToDiscussionIfNeeded(store, lesson);
+    await transitionAfterManualDraft(store, lesson);
     await send(actor.chatId, `Claude 웹 결과를 revision ${nextRevision.revisionNumber}로 저장했어. /today로 확인하거나 /review로 검토 단계로 넘길 수 있어.`);
     return { action: "manual_draft_saved", revisionId: nextRevision.id };
   }
@@ -427,7 +448,20 @@ export function createLessonCommandRouter({
       await send(actor.chatId, "검토할 오늘 학습 세션이 아직 없어.");
       return { action: "review_missing_lesson" };
     }
-    const reviewReady = await transitionToReviewReady(store, lesson);
+    let reviewReady;
+    try {
+      reviewReady = await transitionToReviewReady(store, lesson);
+    } catch (error) {
+      if (error instanceof LessonRouterError && error.code === "NO_REVISION") {
+        await send(actor.chatId, "아직 저장된 draft가 없어. 먼저 /prompt로 Claude용 프롬프트를 받고, Claude가 만든 Markdown을 /draft 뒤에 붙여넣어줘. 그 다음 /review를 누르면 승인 버튼이 나와.");
+        return { action: "review_missing_revision" };
+      }
+      if (error instanceof LessonRouterError && error.code === "NOT_REVIEWABLE") {
+        await send(actor.chatId, `현재 lesson 상태는 ${error.details?.state ?? lesson.state}라서 바로 review로 넘길 수 없어. /status로 상태를 확인하고 필요한 경우 새 /draft를 저장해줘.`);
+        return { action: "review_not_ready" };
+      }
+      throw error;
+    }
     if (!approvalPrompt) {
       await send(actor.chatId, "현재 revision을 review_ready로 전환했어. 승인 버튼 생성은 다음 연결 단계에서 켤게.");
       return { action: "review_ready", lessonId: reviewReady.id };

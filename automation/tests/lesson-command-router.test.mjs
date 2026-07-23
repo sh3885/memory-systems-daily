@@ -261,6 +261,51 @@ describe("lesson command router", () => {
     assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:challenge_3:tok123");
   });
 
+  test("guides the user when /review is sent before any draft exists", async () => {
+    await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+      approvalPrompt: createApprovalPromptService({
+        store,
+        now: () => "2026-07-22T00:00:00.000Z",
+        tokenFactory: () => "tok123",
+      }),
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(32, "/review"), actor });
+    assert.equal(result.action, "review_missing_revision");
+    assert.match(telegram.messages[0].text, /\/draft/);
+    assert.match(telegram.messages[0].text, /\/review/);
+  });
+
+  test("promotes a manually drafted scheduled lesson before review", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const approvalPrompt = createApprovalPromptService({
+      store,
+      now: () => "2026-07-22T00:00:00.000Z",
+      tokenFactory: () => "tok123",
+    });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      approvalPrompt,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    assert.equal(
+      (await router.onMessage({ update: messageUpdate(33, "/draft # Manual draft\n\nBody"), actor })).action,
+      "manual_draft_saved",
+    );
+    assert.equal((await store.getLesson(lesson.id)).state, "draft_ready");
+
+    const result = await router.onMessage({ update: messageUpdate(34, "/review"), actor });
+    assert.equal(result.action, "review_ready_with_approval");
+    assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
+    assert.equal(telegram.messages.at(-1).replyMarkup.inline_keyboard[0][0].callback_data, "approve:challenge_3:tok123");
+  });
+
   test("retries a failed publication through an injected publisher callback", async () => {
     const { lesson } = await createDraftReadyLesson();
     await store.transitionLesson(lesson.id, "review_ready", 2);
