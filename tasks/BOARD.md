@@ -4,16 +4,12 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
-- T-060 Prevent false draft failure after a completed state promotion.
-  - Owner: root agent
-  - Owned paths: `automation/telegram/`, `automation/tests/`, `tasks/active/T-060.md`, `tasks/handoffs/T-060.md`, `tasks/BOARD.md`
-  - Done when: a completed draft revision and draft-ready state cannot surface as a `VERSION_CONFLICT` failure.
-
 ## Ready
 
 
 ## Done
 
+- T-060 Prevent false draft failure after completed promotion, completed 2026-07-23. See `tasks/handoffs/T-060.md`.
 - T-059 Make the complete Telegram-to-Pages publishing workflow a release gate, completed 2026-07-23. See `tasks/handoffs/T-059.md`.
 - T-058 Recover hung GitHub publishing requests in the production Telegram Worker, completed 2026-07-23. See `tasks/handoffs/T-058.md`.
 - T-057 Prevent duplicate Markdown revision creation from repeated Telegram delivery, completed 2026-07-23. See `tasks/handoffs/T-057.md`.
