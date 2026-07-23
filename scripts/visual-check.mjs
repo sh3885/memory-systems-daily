@@ -9,7 +9,7 @@ const routes = [
   ["memory", "/memory/", "DRAM"],
   ["system", "/system/", "CPU/GPU"],
   ["tags", "/tags/", "Tags"],
-  ["admin", "/admin/", "Web Publishing"],
+  ["admin", "/admin/", "블로그 관리"],
   ["post", "/posts/llm-next-token/", "LLM"],
 ];
 const viewports = [

@@ -582,6 +582,40 @@ nav a.active {
   align-items: start;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.admin-gate {
+  display: grid;
+  min-height: 48vh;
+  place-items: center;
+}
+
+.admin-gate-card {
+  display: grid;
+  width: min(100%, 420px);
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 18px 45px rgba(21, 31, 46, 0.08);
+}
+
+.admin-gate-card svg {
+  color: var(--memory);
+}
+
+.admin-gate-card h2,
+.admin-gate-card p {
+  margin: 0;
+}
+
+.admin-gate-card p {
+  color: var(--muted);
+}
+
 .admin-form {
   display: grid;
   gap: 12px;
@@ -659,8 +693,13 @@ nav a.active {
   color: var(--memory);
 }
 
-[data-admin-status][data-tone="error"] {
+[data-admin-status][data-tone="error"],
+[data-admin-gate-status][data-tone="error"] {
   color: var(--danger);
+}
+
+[data-admin-gate-status][data-tone="success"] {
+  color: var(--memory);
 }
 
 .admin-side {

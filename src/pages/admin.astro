@@ -1,91 +1,134 @@
 ---
-import { KeyRound, ListTree, PenTool, Send } from "@lucide/astro";
+import { KeyRound, ListTree, LockKeyhole, PenTool, Send } from "@lucide/astro";
+import blogSettings from "../data/blog-settings.json";
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-daily-bot.sh3885-lee.workers.dev";
 ---
 
-<BaseLayout title="Admin | Memory Systems Daily" description="Web publishing admin for Memory Systems Daily">
+<BaseLayout title="Admin | Memory Systems Daily" description="블로그 관리 화면">
   <section class="shell blog-wrap admin-wrap">
     <header class="blog-title compact-title">
       <p class="kicker">Admin</p>
-      <h1>Web Publishing</h1>
-      <p>브라우저에서 Markdown 글을 작성하고 GitHub/Cloudflare 배포 흐름으로 넘기는 관리 화면입니다.</p>
+      <h1>블로그 관리</h1>
+      <p>웹에서 Markdown 글을 작성하고 GitHub/Cloudflare 배포 흐름으로 넘기는 관리 화면입니다.</p>
     </header>
 
-    <div class="admin-grid">
-      <section class="admin-panel">
-        <h2><KeyRound size={17} /> Connection</h2>
-        <form data-admin-settings class="admin-form compact-form">
+    <section class="admin-gate" data-admin-gate>
+      <div class="admin-gate-card">
+        <LockKeyhole size={28} />
+        <h2>관리자 입장</h2>
+        <p>비밀번호를 입력하면 글 작성 화면이 열립니다.</p>
+        <form data-admin-password-form class="admin-form compact-form">
           <label>
-            <span>Worker API URL</span>
-            <input name="apiBase" type="url" placeholder="https://...workers.dev" />
+            <span>Password</span>
+            <input name="entryPassword" type="password" autocomplete="current-password" />
           </label>
-          <label>
-            <span>Admin token</span>
-            <input name="adminToken" type="password" autocomplete="off" />
-          </label>
-          <button type="submit">저장</button>
+          <button type="submit">입장</button>
+          <p class="status-line" data-admin-gate-status role="status"></p>
         </form>
-        <p class="helper-text">이 값은 현재 브라우저의 localStorage에만 저장됩니다.</p>
-      </section>
+      </div>
+    </section>
 
-      <section class="admin-panel admin-status-panel">
-        <h2>Status</h2>
-        <p data-admin-status>API 주소와 관리자 토큰을 저장하세요.</p>
-      </section>
-    </div>
-
-    <div class="admin-compose">
-      <section class="admin-panel">
-        <h2><PenTool size={17} /> New post</h2>
-        <form data-admin-form class="admin-form">
-          <div class="form-row">
-            <label>
-              <span>Title</span>
-              <input name="title" required placeholder="예: KV Cache는 왜 메모리를 많이 먹는가" />
-            </label>
-            <label>
-              <span>Slug</span>
-              <input name="slug" placeholder="kv-cache-memory" />
-            </label>
-          </div>
-          <label>
-            <span>Description</span>
-            <input name="description" placeholder="목록과 검색 설명에 표시할 요약" />
-          </label>
-          <div class="form-row">
-            <label>
-              <span>Category</span>
-              <select name="category">
-                <option value="LLM">LLM</option>
-                <option value="Memory">Memory</option>
-                <option value="System">System</option>
-              </select>
-            </label>
-            <label>
-              <span>Tags</span>
-              <input name="tags" placeholder="LLM, KV Cache, Bandwidth" />
-            </label>
-          </div>
-          <label>
-            <span>Markdown</span>
-            <textarea name="markdown" required rows="18" placeholder="# 제목&#10;&#10;본문을 Markdown으로 작성하세요."></textarea>
-          </label>
-          <button type="submit"><Send size={16} />발행 요청</button>
-        </form>
-      </section>
-
-      <aside class="admin-side">
+    <div class="admin-content" data-admin-content hidden>
+      <div class="admin-grid">
         <section class="admin-panel">
-          <h2>Preview</h2>
-          <div class="admin-preview" data-admin-preview></div>
+          <h2><KeyRound size={17} /> Connection</h2>
+          <form data-admin-settings class="admin-form compact-form">
+            <label>
+              <span>Worker API URL</span>
+              <input name="apiBase" type="url" value={apiBase} placeholder="https://...workers.dev" />
+            </label>
+            <label>
+              <span>Admin token</span>
+              <input name="adminToken" type="password" autocomplete="off" />
+            </label>
+            <button type="submit">저장</button>
+          </form>
+          <p class="helper-text">이 값은 현재 브라우저의 localStorage에만 저장됩니다.</p>
         </section>
+
+        <section class="admin-panel admin-status-panel">
+          <h2>Status</h2>
+          <p data-admin-status>API 주소와 관리자 토큰을 저장하세요.</p>
+        </section>
+      </div>
+
+      <div class="admin-compose">
         <section class="admin-panel">
-          <h2><ListTree size={17} /> Web admin posts</h2>
-          <ul class="admin-post-list" data-admin-list>
-            <li>API 설정 후 목록을 불러옵니다.</li>
-          </ul>
+          <h2><PenTool size={17} /> New post</h2>
+          <form data-admin-form class="admin-form">
+            <div class="form-row">
+              <label>
+                <span>Title</span>
+                <input name="title" required placeholder="왜 KV Cache는 메모리를 많이 먹는가" />
+              </label>
+              <label>
+                <span>Slug</span>
+                <input name="slug" placeholder="kv-cache-memory" />
+              </label>
+            </div>
+            <label>
+              <span>Description</span>
+              <input name="description" placeholder="목록과 검색 설명에 표시할 요약" />
+            </label>
+            <div class="form-row">
+              <label>
+                <span>Category</span>
+                <select name="category">
+                  <option value="LLM">LLM</option>
+                  <option value="Memory">Memory</option>
+                  <option value="System">System</option>
+                </select>
+              </label>
+              <label>
+                <span>Tags</span>
+                <input name="tags" placeholder="LLM, KV Cache, Bandwidth" />
+              </label>
+            </div>
+            <label>
+              <span>Markdown</span>
+              <textarea name="markdown" required rows="18" placeholder="# 제목&#10;&#10;본문을 Markdown으로 작성하세요."></textarea>
+            </label>
+            <button type="submit"><Send size={16} />발행 요청</button>
+          </form>
         </section>
-      </aside>
+
+        <aside class="admin-side">
+          <section class="admin-panel">
+            <h2>Preview</h2>
+            <div class="admin-preview" data-admin-preview></div>
+          </section>
+          <section class="admin-panel">
+            <h2>Blog settings</h2>
+            <form data-blog-settings class="admin-form compact-form">
+              <label>
+                <span>Blog title</span>
+                <input name="blogTitle" value={blogSettings.blogTitle} />
+              </label>
+              <label>
+                <span>Description</span>
+                <textarea name="description" rows="5">{blogSettings.description}</textarea>
+              </label>
+              <label>
+                <span>Category order</span>
+                <input name="categoryOrder" value={blogSettings.categoryOrder.join(", ")} />
+              </label>
+              <label>
+                <span>Featured tags</span>
+                <input name="featuredTags" value={blogSettings.featuredTags.join(", ")} />
+              </label>
+              <button type="submit">목록 설정 저장</button>
+            </form>
+          </section>
+          <section class="admin-panel">
+            <h2><ListTree size={17} /> Web admin posts</h2>
+            <ul class="admin-post-list" data-admin-list>
+              <li>API 설정 후 목록을 불러옵니다.</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
     </div>
   </section>
   <script is:inline src="/scripts/admin.js" defer></script>
