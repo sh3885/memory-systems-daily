@@ -462,6 +462,41 @@ describe("lesson command router", () => {
     assert.match(telegram.messages.at(-1).text, /revision 1/);
   });
 
+  test("reconciles a completed draft when a final version conflict escapes the promotion helper", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const transitionLesson = store.transitionLesson.bind(store);
+    const getLesson = store.getLesson.bind(store);
+    let injectedConflict = false;
+    let staleRead = false;
+    store.transitionLesson = async (...args) => {
+      if (args[1] === "draft_ready" && !injectedConflict) {
+        injectedConflict = true;
+        await transitionLesson(...args);
+        throw new StoreError("VERSION_CONFLICT", "simulated completed transition");
+      }
+      return transitionLesson(...args);
+    };
+    store.getLesson = async (id) => {
+      const current = await getLesson(id);
+      if (injectedConflict && !staleRead && current.state === "draft_ready") {
+        staleRead = true;
+        return { ...current, state: "researching", stateVersion: current.stateVersion - 1 };
+      }
+      return current;
+    };
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(73, "/draft # Reconciled draft\n\nBody"), actor });
+
+    assert.equal(result.action, "manual_draft_saved");
+    assert.equal((await getLesson(lesson.id)).state, "draft_ready");
+    assert.equal((await getLesson(lesson.id)).currentRevisionNumber, 1);
+  });
+
   test("does not create another revision when the same Markdown arrives again", async () => {
     const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
     const router = createLessonCommandRouter({

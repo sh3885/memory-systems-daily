@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-060 Prevent false draft failure after a completed state promotion.
+  - Owner: root agent
+  - Owned paths: `automation/telegram/`, `automation/tests/`, `tasks/active/T-060.md`, `tasks/handoffs/T-060.md`, `tasks/BOARD.md`
+  - Done when: a completed draft revision and draft-ready state cannot surface as a `VERSION_CONFLICT` failure.
+
 ## Ready
 
 

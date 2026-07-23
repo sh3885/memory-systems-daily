@@ -491,12 +491,26 @@ export function createLessonCommandRouter({
       }
       throw error;
     }
-    const { revision: nextRevision, reused } = await saveManualDraftRevision(store, {
-      lesson,
-      content: requireText(content, "content"),
-      updateId: update.update_id,
-    });
-    await ensureDraftStateAfterManualDraft(store, lesson);
+    const draftContent = requireText(content, "content");
+    let nextRevision;
+    let reused = false;
+    try {
+      ({ revision: nextRevision, reused } = await saveManualDraftRevision(store, {
+        lesson,
+        content: draftContent,
+        updateId: update.update_id,
+      }));
+      await ensureDraftStateAfterManualDraft(store, lesson);
+    } catch (error) {
+      if (!(error instanceof StoreError) || error.code !== "VERSION_CONFLICT") throw error;
+      const latest = await store.getLesson(lesson.id);
+      const contentHash = await sha256Hex(draftContent);
+      if (!latest.currentRevisionId || latest.currentContentHash !== contentHash || !["draft_ready", "discussing", "review_ready"].includes(latest.state)) {
+        throw error;
+      }
+      nextRevision = await store.getRevision(latest.currentRevisionId);
+      reused = true;
+    }
     if (reused) {
       await send(actor.chatId, `같은 Markdown이 이미 revision ${nextRevision.revisionNumber}로 저장되어 있어. 새 revision은 만들지 않았어. /review로 검토 단계로 넘기면 돼.`);
       return { action: "manual_draft_unchanged", revisionId: nextRevision.id };
