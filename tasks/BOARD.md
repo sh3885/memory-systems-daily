@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-047 Remove model-specific service wording from generated prompts.
+  - Owner: root agent
+  - Owned paths: `automation/telegram/lesson-command-router.mjs`, `automation/tests/lesson-command-router.test.mjs`, `tasks/active/T-047.md`, `tasks/handoffs/T-047.md`
+  - Done when: the copyable draft, Q&A, and revision prompts contain no service-specific launch instructions.
+
 ## Ready
 
 

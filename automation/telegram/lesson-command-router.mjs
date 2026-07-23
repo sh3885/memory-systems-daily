@@ -96,7 +96,7 @@ function lessonPromptContext(lesson) {
 function buildDraftPrompt({ lessonDate, lesson }) {
   const context = lessonPromptContext(lesson);
   return [
-    "아래 내용을 Claude 웹에 그대로 붙여넣어 오늘 블로그 초안을 만들어줘.",
+    "아래 지시를 따라 오늘 블로그 초안을 작성해줘.",
     "",
     "[복사 시작]",
     "너는 LLM, 메모리, 컴퓨터 시스템을 공개 출처 기반으로 설명하는 한국어 기술 튜터다.",
@@ -132,7 +132,7 @@ function buildDraftPrompt({ lessonDate, lesson }) {
 function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
   const context = lessonPromptContext(lesson);
   return [
-    "아래 내용을 Claude 웹에 붙여넣어 답변을 받아줘.",
+    "아래 질문에 답해줘.",
     "",
     "[복사 시작]",
     "너는 LLM, 메모리, 컴퓨터 시스템을 공개 출처 기반으로 설명하는 한국어 튜터다.",
@@ -157,7 +157,7 @@ function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
 function buildRevisionPrompt({ instruction, lesson, revision }) {
   const context = lessonPromptContext(lesson);
   return [
-    "아래 내용을 Claude 웹에 붙여넣어 초안을 수정해줘.",
+    "아래 지시와 현재 초안을 바탕으로 수정본을 작성해줘.",
     "",
     "[복사 시작]",
     "너는 한국어 기술 블로그 편집자다.",
