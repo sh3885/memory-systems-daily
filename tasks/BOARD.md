@@ -8,6 +8,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-037 Enable GitHub Actions Pages deployment, completed 2026-07-23. See `tasks/handoffs/T-037.md`.
 - T-036 End-to-end daily publishing operations, completed 2026-07-23. See `tasks/handoffs/T-036.md`.
 - T-035 Verify real Pages deployment, completed 2026-07-23. See `tasks/handoffs/T-035.md`.
 - T-034 Approval-to-publish gate repair, completed 2026-07-23. See `tasks/handoffs/T-034.md`.
