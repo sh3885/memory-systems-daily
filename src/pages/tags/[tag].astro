@@ -1,0 +1,27 @@
+---
+import PostList from "../../components/PostList.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { allTags, postsForTagSlug } from "../../data/blog";
+
+export function getStaticPaths() {
+  return allTags().map((tag) => ({
+    params: { tag: tag.slug },
+    props: { tag },
+  }));
+}
+
+const { tag } = Astro.props;
+const taggedPosts = postsForTagSlug(tag.slug);
+---
+
+<BaseLayout title={`${tag.tag} | Memory Systems Daily`}>
+  <section class="shell blog-wrap">
+    <header class="blog-title compact-title">
+      <p class="kicker">Tag</p>
+      <h1>{tag.tag}</h1>
+      <p>{tag.count}개의 글이 이 태그에 연결되어 있습니다.</p>
+    </header>
+
+    <PostList posts={taggedPosts} emptyText="이 태그에 연결된 글이 없습니다." />
+  </section>
+</BaseLayout>

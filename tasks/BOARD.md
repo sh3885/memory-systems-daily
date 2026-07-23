@@ -8,6 +8,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-040 Blog UX and web admin publishing, completed 2026-07-23. See `tasks/handoffs/T-040.md`.
 - T-039 Fix Cloudflare account identifier in deploy workflow, completed 2026-07-23. See `tasks/handoffs/T-039.md`.
 - T-038 Fix GitHub Actions Wrangler deploy command, completed 2026-07-23. See `tasks/handoffs/T-038.md`.
 - T-037 Enable GitHub Actions Pages deployment, completed 2026-07-23. See `tasks/handoffs/T-037.md`.

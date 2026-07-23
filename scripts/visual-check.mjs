@@ -8,7 +8,9 @@ const routes = [
   ["llm", "/llm/", "Transformer"],
   ["memory", "/memory/", "DRAM"],
   ["system", "/system/", "CPU/GPU"],
-  ["post", "/posts/llm-next-token/", "Memory Traffic"],
+  ["tags", "/tags/", "Tags"],
+  ["admin", "/admin/", "블로그 관리"],
+  ["post", "/posts/llm-next-token/", "LLM"],
 ];
 const viewports = [
   ["desktop", { width: 1440, height: 1000 }],

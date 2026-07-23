@@ -1,7 +1,7 @@
 ---
-import { ArrowLeft } from "@lucide/astro";
+import { ArrowLeft, Eye, Tags } from "@lucide/astro";
 import BaseLayout from "./BaseLayout.astro";
-import { categoryById, normalizeCategory } from "../data/blog";
+import { categoryById, normalizeCategory, posts, relatedPosts, tagSlug } from "../data/blog";
 
 interface Props {
   frontmatter?: {
@@ -24,6 +24,8 @@ const description = frontmatter.description ?? "";
 const tags = Array.isArray(frontmatter.tags) ? frontmatter.tags : [];
 const lessonDate = frontmatter.lessonDate ?? frontmatter.pubDate ?? frontmatter.date;
 const minutes = frontmatter.minutes;
+const currentPost = posts.find((post) => post.title === title);
+const related = currentPost ? relatedPosts(currentPost, 4) : [];
 ---
 
 <BaseLayout title={`${title} | Memory Systems Daily`} description={description}>
@@ -47,6 +49,11 @@ const minutes = frontmatter.minutes;
       </main>
       <aside class="post-side">
         <section>
+          <strong>Stats</strong>
+          <span class="stat-line"><Eye size={14} />누적 <b data-visit-total>0</b></span>
+          <span class="stat-line">오늘 <b data-visit-today>0</b></span>
+        </section>
+        <section>
           <strong>Category</strong>
           <a href={category.path}>{category.label}</a>
         </section>
@@ -54,8 +61,16 @@ const minutes = frontmatter.minutes;
           <section>
             <strong>Tags</strong>
             <div class="tag-list">
-              {tags.map((tag) => <span>{tag}</span>)}
+              {tags.map((tag) => <a href={`/tags/${tagSlug(tag)}/`}><Tags size={13} />{tag}</a>)}
             </div>
+          </section>
+        )}
+        {related.length > 0 && (
+          <section>
+            <strong>Related</strong>
+            <ul class="plain-list">
+              {related.map((post) => <li><a href={post.url}>{post.title}</a></li>)}
+            </ul>
           </section>
         )}
       </aside>

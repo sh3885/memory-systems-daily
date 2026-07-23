@@ -1,73 +1,51 @@
 ---
+import { Eye, FolderOpen, History, Tags } from "@lucide/astro";
+import PostList from "../components/PostList.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { blogCategories, posts, postsForCategory, tagCloud } from "../data/blog";
+import {
+  archiveMonths,
+  blogSettings,
+  orderedBlogCategories,
+  posts,
+  postsForCategory,
+  tagCloud,
+} from "../data/blog";
 
-const [featured, ...restPosts] = posts;
 const tags = tagCloud();
+const months = archiveMonths();
 ---
 
 <BaseLayout title="Memory Systems Daily">
   <section class="shell blog-wrap">
-    <header class="blog-title">
-      <p class="kicker">LLM / Memory / System</p>
+    <header class="blog-title compact-title">
+      <p class="kicker">Daily technical blog</p>
       <h1>Memory Systems Daily</h1>
-      <p>LLM과 메모리 시스템을 공부하며 정리하는 기술 블로그입니다.</p>
+      <p>{blogSettings.description}</p>
     </header>
 
     <div class="blog-layout">
-      <section class="post-stream" aria-label="최신 글">
-        {featured ? (
-          <a class="post-card" href={featured.url}>
-            <div class="post-thumb">
-              <img src="/images/memory-systems-hero.png" alt="" loading="lazy" />
-            </div>
-            <div class="post-summary">
-              <div class="post-meta">
-                <span class:list={["pill", featured.category]}>{featured.categoryLabel}</span>
-                {featured.lessonDate && <span class="pill">{featured.lessonDate}</span>}
-                {featured.minutes && <span class="pill">{featured.minutes} min</span>}
-              </div>
-              <h2>{featured.title}</h2>
-              <p>{featured.description}</p>
-              <div class="post-tags">
-                {featured.tags.slice(0, 5).map((tag) => <span class="pill">{tag}</span>)}
-              </div>
-            </div>
-          </a>
-        ) : (
-          <div class="empty-state">아직 공개된 글이 없습니다.</div>
-        )}
-
-        {restPosts.map((post) => (
-          <a class="post-card" href={post.url}>
-            <div class="post-thumb">
-              <img src="/images/memory-systems-hero.png" alt="" loading="lazy" />
-            </div>
-            <div class="post-summary">
-              <div class="post-meta">
-                <span class:list={["pill", post.category]}>{post.categoryLabel}</span>
-                {post.lessonDate && <span class="pill">{post.lessonDate}</span>}
-              </div>
-              <h3>{post.title}</h3>
-              <p>{post.description}</p>
-              <div class="post-tags">
-                {post.tags.slice(0, 4).map((tag) => <span class="pill">{tag}</span>)}
-              </div>
-            </div>
-          </a>
-        ))}
-      </section>
+      <PostList posts={posts} />
 
       <aside class="sidebar" aria-label="블로그 사이드바">
-        <section class="side-box">
+        <section class="side-box profile-box">
           <h2>About</h2>
-          <p>AI, DRAM/HBM, CXL, GPU/CPU architecture를 시스템 관점에서 연결해 보는 기록입니다.</p>
+          <p>LLM serving, memory hierarchy, system bottleneck을 공개 가능한 개념 중심으로 정리합니다.</p>
+        </section>
+
+        <section class="side-box stats-box">
+          <h2><Eye size={15} /> Visitors</h2>
+          <div class="stats-grid">
+            <span>전체</span><strong data-visit-total>0</strong>
+            <span>오늘</span><strong data-visit-today>0</strong>
+            <span>고유</span><strong data-visit-unique>0</strong>
+          </div>
+          <p data-visit-status>API 연결 시 자동 업데이트됩니다.</p>
         </section>
 
         <section class="side-box">
-          <h2>Categories</h2>
+          <h2><FolderOpen size={15} /> Categories</h2>
           <ul>
-            {blogCategories.map((category) => (
+            {orderedBlogCategories.map((category) => (
               <li>
                 <a class="category-link" href={category.path}>
                   <span>{category.label}</span>
@@ -79,17 +57,17 @@ const tags = tagCloud();
         </section>
 
         <section class="side-box">
-          <h2>Tags</h2>
+          <h2><Tags size={15} /> Tags</h2>
           <div class="tag-list">
-            {tags.map(({ tag, count }) => <span>{tag} {count}</span>)}
+            {tags.map(({ tag, count, path }) => <a href={path}>{tag}<span>{count}</span></a>)}
           </div>
         </section>
 
         <section class="side-box">
-          <h2>Recent</h2>
+          <h2><History size={15} /> Archive</h2>
           <ul>
-            {posts.slice(0, 5).map((post) => (
-              <li><a href={post.url}>{post.title}</a></li>
+            {months.map(({ month, count }) => (
+              <li class="category-link"><span>{month}</span><span>{count}</span></li>
             ))}
           </ul>
         </section>

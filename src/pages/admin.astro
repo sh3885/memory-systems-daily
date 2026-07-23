@@ -1,0 +1,94 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { blogSettings, orderedBlogCategories } from "../data/blog";
+
+const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-daily-bot.sh3885-lee.workers.dev";
+const categoryOrder = (blogSettings.categoryOrder as string[]).join(", ");
+const featuredTags = (blogSettings.featuredTags as string[]).join(", ");
+---
+
+<BaseLayout title="Admin | Memory Systems Daily" description="블로그 관리 화면">
+  <section class="shell blog-wrap">
+    <header class="blog-title">
+      <p class="kicker">Admin</p>
+      <h1>블로그 관리</h1>
+      <p>웹에서 Markdown 글을 작성하고, 카테고리 순서와 주요 태그 설정을 GitHub 소스로 반영합니다.</p>
+    </header>
+
+    <div class="admin-grid">
+      <section class="admin-panel">
+        <h2>새 글 작성</h2>
+        <form id="post-form" class="field-grid">
+          <div class="field-row">
+            <label for="admin-token">Admin token</label>
+            <input id="admin-token" name="adminToken" type="password" autocomplete="current-password" />
+          </div>
+          <div class="field-row">
+            <label for="api-base">API base</label>
+            <input id="api-base" name="apiBase" value={apiBase} />
+          </div>
+          <div class="field-row">
+            <label for="title">Title</label>
+            <input id="title" name="title" required />
+          </div>
+          <div class="field-row">
+            <label for="slug">Slug</label>
+            <input id="slug" name="slug" placeholder="비워두면 제목으로 자동 생성" />
+          </div>
+          <div class="field-row">
+            <label for="description">Description</label>
+            <input id="description" name="description" />
+          </div>
+          <div class="field-row">
+            <label for="category">Category</label>
+            <select id="category" name="category">
+              {orderedBlogCategories.map((category) => <option value={category.label}>{category.label}</option>)}
+            </select>
+          </div>
+          <div class="field-row">
+            <label for="tags">Tags</label>
+            <input id="tags" name="tags" placeholder="LLM, KV Cache, Bandwidth" />
+          </div>
+          <div class="field-row">
+            <label for="body">Markdown body</label>
+            <textarea id="body" name="body" required placeholder="# 제목&#10;&#10;본문을 Markdown으로 작성"></textarea>
+          </div>
+          <div class="button-row">
+            <button class="action-button" type="submit">Publish post</button>
+            <button class="action-button secondary" id="save-settings" type="button">Update blog settings</button>
+          </div>
+          <div id="post-status" class="status-line" role="status"></div>
+        </form>
+      </section>
+
+      <aside class="admin-panel">
+        <h2>목록 설정</h2>
+        <div class="field-grid">
+          <div class="field-row">
+            <label for="blog-title">Blog title</label>
+            <input id="blog-title" value={blogSettings.blogTitle} />
+          </div>
+          <div class="field-row">
+            <label for="blog-description">Description</label>
+            <textarea id="blog-description" style="min-height: 110px;">{blogSettings.description}</textarea>
+          </div>
+          <div class="field-row">
+            <label for="category-order">Category order</label>
+            <input id="category-order" value={categoryOrder} />
+          </div>
+          <div class="field-row">
+            <label for="featured-tags">Featured tags</label>
+            <input id="featured-tags" value={featuredTags} />
+          </div>
+          <div class="side-box">
+            <h2>Recent admin posts</h2>
+            <ul id="admin-posts">
+              <li>토큰을 입력하면 목록을 불러옵니다.</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+  <script is:inline src="/scripts/admin.js" defer></script>
+</BaseLayout>

@@ -1,0 +1,27 @@
+---
+import { Tags } from "@lucide/astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { allTags } from "../../data/blog";
+
+const tags = allTags();
+---
+
+<BaseLayout title="Tags | Memory Systems Daily">
+  <section class="shell blog-wrap">
+    <header class="blog-title compact-title">
+      <p class="kicker">Index</p>
+      <h1>Tags</h1>
+      <p>관련 키워드별로 글을 모아봅니다.</p>
+    </header>
+
+    <div class="tag-index">
+      {tags.map(({ tag, count, path }) => (
+        <a href={path}>
+          <Tags size={16} />
+          <strong>{tag}</strong>
+          <span>{count}</span>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

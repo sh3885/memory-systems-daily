@@ -1,4 +1,6 @@
 import { createCloudflareScheduledHandler } from "../scheduler/daily-lesson-scheduler.mjs";
+import { createBlogApi } from "../blog/blog-api.mjs";
+import { D1BlogStore } from "../blog/blog-store.mjs";
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import {
   createAnthropicMessagesClient,
@@ -6,6 +8,7 @@ import {
   createClaudeRevisionProvider,
 } from "../llm/anthropic-messages-provider.mjs";
 import { createGitHubAppPublisher } from "../publishing/github-app-publisher.mjs";
+import { createGitHubContentWriter } from "../publishing/github-content-writer.mjs";
 import { createHttpDeploymentVerifier } from "../publishing/deployment-verifier.mjs";
 import { createPublicationService } from "../publishing/publication-service.mjs";
 import { createApprovalPromptService, createLessonCommandRouter } from "./lesson-command-router.mjs";
@@ -30,6 +33,7 @@ function githubPublishingConfigured(env) {
 
 function createRuntime(env) {
   const store = new D1LessonStore(env.DB);
+  const blogStore = new D1BlogStore(env.DB);
   const telegram = createTelegramClient({ botToken: env.TELEGRAM_BOT_TOKEN });
   const anthropicClient = configured(env.ANTHROPIC_API_KEY)
     ? createAnthropicMessagesClient({
@@ -76,8 +80,35 @@ function createRuntime(env) {
   }
 
   const router = createLessonCommandRouter(routerOptions);
+  const adminWriter = githubPublishingConfigured(env)
+    ? createGitHubContentWriter({
+        appId: env.GITHUB_APP_ID,
+        privateKey: env.GITHUB_APP_PRIVATE_KEY,
+        installationId: env.GITHUB_INSTALLATION_ID,
+        owner: env.GITHUB_OWNER,
+        repo: env.GITHUB_REPOSITORY,
+        branch: env.GITHUB_ADMIN_BRANCH || "main",
+      })
+    : null;
+  const blogApi = createBlogApi({
+    env,
+    store: blogStore,
+    publisher: adminWriter
+      ? {
+          async publishPost(input) {
+            const result = await adminWriter.putFile({
+              path: input.path,
+              content: input.content,
+              message: input.message,
+              branch: env.GITHUB_ADMIN_BRANCH || "main",
+            });
+            return { ...result, pullRequestUrl: null };
+          },
+        }
+      : null,
+  });
 
-  return { store, telegram, router, publicationService };
+  return { store, telegram, router, publicationService, blogApi };
 }
 
 function dailyLessonMessage({ lessonDate, curriculumRef, lesson }) {
@@ -127,7 +158,9 @@ async function publishAndNotify({ publicationService, telegram, actor, approval 
 
 export default {
   async fetch(request, env) {
-    const { store, telegram, router, publicationService } = createRuntime(env);
+    const { store, telegram, router, publicationService, blogApi } = createRuntime(env);
+    const path = new URL(request.url).pathname;
+    if (path.startsWith("/api/")) return blogApi(request);
     const handler = createTelegramWebhook({
       env,
       store,

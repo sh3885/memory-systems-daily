@@ -1,5 +1,6 @@
 ---
-import { BrainCircuit, Cpu, Database, House } from "@lucide/astro";
+import { BrainCircuit, Cpu, Database, House, PenTool, Tags } from "@lucide/astro";
+import { blogSettings } from "../data/blog";
 import "../styles/global.css";
 
 interface Props {
@@ -12,12 +13,12 @@ interface Props {
 }
 
 const frontmatter = Astro.props.frontmatter ?? {};
-const title = Astro.props.title ?? frontmatter.title ?? "Memory Systems Daily";
-const description =
-  Astro.props.description ??
-  frontmatter.description ??
-  "LLM, memory, and system architecture notes written as a technical blog.";
+const title = Astro.props.title ?? frontmatter.title ?? blogSettings.blogTitle;
+const description = Astro.props.description ?? frontmatter.description ?? blogSettings.description;
 const path = Astro.url.pathname;
+const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ??
+  (import.meta.env.DEV ? "" : "https://memory-systems-daily-bot.sh3885-lee.workers.dev");
+const apiBaseScript = `window.MSD_API_BASE = ${JSON.stringify(apiBase)};`;
 ---
 
 <!doctype html>
@@ -30,17 +31,21 @@ const path = Astro.url.pathname;
     <title>{title}</title>
   </head>
   <body>
+    <script is:inline set:html={apiBaseScript}></script>
+    <script is:inline src="/scripts/blog-runtime.js" defer></script>
     <header class="site-header">
       <div class="shell header-inner">
         <a class="brand" href="/" aria-label="Memory Systems Daily home">
           <span class="brand-mark">MS</span>
-          <span>Memory Systems Daily</span>
+          <span>{blogSettings.blogTitle}</span>
         </a>
-        <nav aria-label="블로그 카테고리">
+        <nav aria-label="블로그 메뉴">
           <a class:list={[{ active: path === "/" }]} href="/"><House size={16} />Home</a>
           <a class:list={[{ active: path.startsWith("/llm") }]} href="/llm/"><BrainCircuit size={16} />LLM</a>
           <a class:list={[{ active: path.startsWith("/memory") }]} href="/memory/"><Database size={16} />Memory</a>
           <a class:list={[{ active: path.startsWith("/system") }]} href="/system/"><Cpu size={16} />System</a>
+          <a class:list={[{ active: path.startsWith("/tags") }]} href="/tags/"><Tags size={16} />Tags</a>
+          <a class:list={[{ active: path.startsWith("/admin") }]} href="/admin/"><PenTool size={16} />Admin</a>
         </nav>
       </div>
     </header>
@@ -49,124 +54,9 @@ const path = Astro.url.pathname;
     </main>
     <footer>
       <div class="shell footer-inner">
-        <strong>Memory Systems Daily</strong>
-        <p>LLM과 메모리 시스템을 공부하며 정리하는 개인 기술 블로그입니다.</p>
+        <strong>{blogSettings.blogTitle}</strong>
+        <p>{blogSettings.description}</p>
       </div>
     </footer>
   </body>
 </html>
-
-<style>
-  .site-header {
-    position: sticky;
-    z-index: 10;
-    top: 0;
-    border-bottom: 1px solid var(--line);
-    background: rgba(255, 255, 255, 0.96);
-    backdrop-filter: blur(12px);
-  }
-
-  .header-inner {
-    display: flex;
-    min-height: 60px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 20px;
-  }
-
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.96rem;
-    font-weight: 850;
-    white-space: nowrap;
-  }
-
-  .brand-mark {
-    display: grid;
-    width: 32px;
-    height: 32px;
-    place-items: center;
-    border-radius: 5px;
-    background: var(--ink);
-    color: white;
-    font-size: 0.7rem;
-  }
-
-  nav {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  nav a {
-    display: inline-flex;
-    min-height: 36px;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 10px;
-    border-radius: 5px;
-    color: var(--muted);
-    font-size: 0.84rem;
-    font-weight: 760;
-  }
-
-  nav a:hover,
-  nav a.active {
-    background: var(--paper);
-    color: var(--ink);
-  }
-
-  footer {
-    padding: 38px 0;
-    border-top: 1px solid var(--line);
-    background: white;
-  }
-
-  .footer-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    color: var(--muted);
-    font-size: 0.86rem;
-  }
-
-  footer strong {
-    color: var(--ink);
-  }
-
-  footer p {
-    margin: 0;
-  }
-
-  @media (max-width: 760px) {
-    .header-inner {
-      min-height: auto;
-      flex-direction: column;
-      align-items: stretch;
-      padding: 12px 0 10px;
-      gap: 10px;
-    }
-
-    nav {
-      justify-content: space-between;
-    }
-
-    nav a {
-      flex: 1;
-      justify-content: center;
-      padding: 6px 7px;
-      font-size: 0.78rem;
-    }
-
-    .footer-inner {
-      display: block;
-    }
-
-    footer p {
-      margin-top: 6px;
-    }
-  }
-</style>

@@ -1,0 +1,35 @@
+---
+import { CalendarDays, Clock, Tags } from "@lucide/astro";
+import { tagSlug, type BlogPost } from "../data/blog";
+
+interface Props {
+  posts: BlogPost[];
+  emptyText?: string;
+}
+
+const { posts, emptyText = "아직 공개된 글이 없습니다." } = Astro.props;
+---
+
+<section class="post-stream" data-post-stream>
+  {posts.length > 0 ? posts.map((post) => (
+    <article class="post-row" data-post-url={post.url}>
+      <div class="post-row-main">
+        <div class="post-meta">
+          <a class:list={["pill", post.category]} href={`/${post.category}/`}>{post.categoryLabel}</a>
+          {post.lessonDate && <span class="meta-text"><CalendarDays size={14} />{post.lessonDate}</span>}
+          {post.minutes && <span class="meta-text"><Clock size={14} />{post.minutes} min</span>}
+        </div>
+        <h2><a href={post.url}>{post.title}</a></h2>
+        <p>{post.description}</p>
+        {post.tags.length > 0 && (
+          <div class="post-tags">
+            {post.tags.slice(0, 6).map((tag) => (
+              <a class="tag-chip" href={`/tags/${tagSlug(tag)}/`}><Tags size={13} />{tag}</a>
+            ))}
+          </div>
+        )}
+      </div>
+      <a class="read-link" href={post.url}>읽기</a>
+    </article>
+  )) : <div class="empty-state">{emptyText}</div>}
+</section>

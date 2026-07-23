@@ -1,0 +1,12 @@
+{
+  "blogTitle": "Memory Systems Daily",
+  "tagline": "LLM, Memory, System architecture notes",
+  "description": "LLM, memory, and system architecture를 데이터 이동, 병목, 인터페이스 관점에서 매일 정리하는 기술 블로그입니다.",
+  "categoryOrder": ["llm", "memory", "system"],
+  "featuredTags": ["LLM", "HBM", "KV Cache", "CXL", "Roofline", "Bandwidth"],
+  "sidebarLinks": [
+    { "label": "전체 글", "href": "/" },
+    { "label": "태그", "href": "/tags/" },
+    { "label": "관리", "href": "/admin/" }
+  ]
+}

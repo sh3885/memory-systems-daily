@@ -1,6 +1,7 @@
 name = "memory-systems-daily-bot"
 main = "automation/telegram/worker.mjs"
 compatibility_date = "2026-07-22"
+workers_dev = true
 
 [triggers]
 crons = ["30 23 * * *"]
@@ -9,3 +10,4 @@ crons = ["30 23 * * *"]
 binding = "DB"
 database_name = "memory-systems-daily-db"
 database_id = "8fda3f2c-2ebd-437b-9b19-0d1d395b3d24"
+migrations_dir = "automation/storage/migrations"

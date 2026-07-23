@@ -18,6 +18,9 @@ concurrency:
   group: pages-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PUBLIC_BLOG_API_BASE: https://memory-systems-daily-bot.sh3885-lee.workers.dev
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

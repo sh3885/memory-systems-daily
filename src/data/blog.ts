@@ -1,3 +1,5 @@
+import settings from "./blog-settings.json";
+
 export type BlogCategoryId = "llm" | "memory" | "system";
 
 export type BlogCategory = {
@@ -8,6 +10,7 @@ export type BlogCategory = {
 };
 
 export type BlogPost = {
+  slug: string;
   title: string;
   description: string;
   url: string;
@@ -18,9 +21,18 @@ export type BlogPost = {
   minutes?: number;
 };
 
+export type BlogTag = {
+  tag: string;
+  count: number;
+  slug: string;
+  path: string;
+};
+
 type MarkdownModule = {
   frontmatter?: Record<string, unknown>;
 };
+
+export const blogSettings = settings;
 
 export const blogCategories: BlogCategory[] = [
   {
@@ -39,9 +51,14 @@ export const blogCategories: BlogCategory[] = [
     id: "system",
     label: "System",
     path: "/system/",
-    description: "CPU/GPU architecture, cache, NUMA, I/O, interconnect, performance analysis.",
+    description: "CPU/GPU architecture, cache, NUMA, I/O, interconnect, and performance analysis.",
   },
 ];
+
+export const orderedBlogCategories = [...blogCategories].sort((left, right) => {
+  const order = blogSettings.categoryOrder as string[];
+  return order.indexOf(left.id) - order.indexOf(right.id);
+});
 
 const categoryAliases: Record<string, BlogCategoryId> = {
   llm: "llm",
@@ -81,6 +98,16 @@ function slugFromPath(path: string) {
   return path.split("/").pop()?.replace(/\.(md|mdx)$/i, "") ?? "post";
 }
 
+export function tagSlug(tag: string) {
+  return String(tag ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-") || "tag";
+}
+
 export const posts: BlogPost[] = Object.entries(postModules)
   .map(([path, module]) => {
     const frontmatter = module.frontmatter ?? {};
@@ -88,6 +115,7 @@ export const posts: BlogPost[] = Object.entries(postModules)
     const categoryInfo = categoryById(category);
     const slug = slugFromPath(path);
     return {
+      slug,
       title: stringValue(frontmatter.title, slug),
       description: stringValue(frontmatter.description, "No description yet."),
       url: `/posts/${slug}/`,
@@ -104,7 +132,7 @@ export function postsForCategory(category: BlogCategoryId) {
   return posts.filter((post) => post.category === category);
 }
 
-export function tagCloud(limit = 24) {
+export function tagCloud(limit = 24): BlogTag[] {
   const counts = new Map<string, number>();
   for (const post of posts) {
     for (const tag of post.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
@@ -112,5 +140,41 @@ export function tagCloud(limit = 24) {
   return [...counts.entries()]
     .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
     .slice(0, limit)
-    .map(([tag, count]) => ({ tag, count }));
+    .map(([tag, count]) => ({ tag, count, slug: tagSlug(tag), path: `/tags/${tagSlug(tag)}/` }));
+}
+
+export function allTags() {
+  return tagCloud(Number.MAX_SAFE_INTEGER);
+}
+
+export function postsForTagSlug(slug: string) {
+  return posts.filter((post) => post.tags.some((tag) => tagSlug(tag) === slug));
+}
+
+export function archiveMonths() {
+  const counts = new Map<string, number>();
+  for (const post of posts) {
+    if (!post.lessonDate) continue;
+    const month = post.lessonDate.slice(0, 7);
+    counts.set(month, (counts.get(month) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((left, right) => right[0].localeCompare(left[0]))
+    .map(([month, count]) => ({ month, count }));
+}
+
+export function relatedPosts(post: BlogPost, limit = 4) {
+  const tagSet = new Set(post.tags.map(tagSlug));
+  return posts
+    .filter((candidate) => candidate.url !== post.url)
+    .map((candidate) => ({
+      post: candidate,
+      score:
+        (candidate.category === post.category ? 2 : 0) +
+        candidate.tags.filter((tag) => tagSet.has(tagSlug(tag))).length,
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => right.score - left.score || right.post.lessonDate.localeCompare(left.post.lessonDate))
+    .slice(0, limit)
+    .map((entry) => entry.post);
 }

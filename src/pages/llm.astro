@@ -1,38 +1,35 @@
 ---
+import PostList from "../components/PostList.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { categoryById, postsForCategory } from "../data/blog";
+import { categoryById, postsForCategory, tagCloud } from "../data/blog";
 
 const category = categoryById("llm");
 const categoryPosts = postsForCategory("llm");
+const tags = tagCloud().filter((tag) => categoryPosts.some((post) => post.tags.includes(tag.tag)));
 ---
 
 <BaseLayout title="LLM | Memory Systems Daily" description={category.description}>
   <section class="shell blog-wrap">
-    <header class="blog-title">
+    <header class="blog-title compact-title">
       <p class="kicker">Category</p>
       <h1>{category.label}</h1>
       <p>{category.description}</p>
     </header>
 
-    <section class="post-stream">
-      {categoryPosts.length > 0 ? categoryPosts.map((post) => (
-        <a class="post-card" href={post.url}>
-          <div class="post-thumb">
-            <img src="/images/memory-systems-hero.png" alt="" loading="lazy" />
+    <div class="blog-layout">
+      <PostList posts={categoryPosts} emptyText="아직 LLM 글이 없습니다." />
+      <aside class="sidebar">
+        <section class="side-box">
+          <h2>LLM Notes</h2>
+          <p>모델 구조에서 serving 병목까지, token이 움직이는 데이터 경로를 중심으로 봅니다.</p>
+        </section>
+        <section class="side-box">
+          <h2>Tags</h2>
+          <div class="tag-list">
+            {tags.map(({ tag, count, path }) => <a href={path}>{tag}<span>{count}</span></a>)}
           </div>
-          <div class="post-summary">
-            <div class="post-meta">
-              <span class:list={["pill", post.category]}>{post.categoryLabel}</span>
-              {post.lessonDate && <span class="pill">{post.lessonDate}</span>}
-            </div>
-            <h2>{post.title}</h2>
-            <p>{post.description}</p>
-            <div class="post-tags">
-              {post.tags.slice(0, 5).map((tag) => <span class="pill">{tag}</span>)}
-            </div>
-          </div>
-        </a>
-      )) : <div class="empty-state">아직 LLM 글이 없습니다.</div>}
-    </section>
+        </section>
+      </aside>
+    </div>
   </section>
 </BaseLayout>
