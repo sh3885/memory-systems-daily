@@ -8,6 +8,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-035 Verify real Pages deployment, completed 2026-07-23. See `tasks/handoffs/T-035.md`.
 - T-034 Approval-to-publish gate repair, completed 2026-07-23. See `tasks/handoffs/T-034.md`.
 - T-033 End-to-end review approval verification, completed 2026-07-23. See `tasks/handoffs/T-033.md`.
 - T-032 Telegram markdown draft upload, completed 2026-07-23. See `tasks/handoffs/T-032.md`.
