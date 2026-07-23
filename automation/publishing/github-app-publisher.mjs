@@ -271,7 +271,10 @@ export function createGitHubAppPublisher({
       const baseBranch = await getDefaultBranch(token);
       await ensureBranch(token, baseBranch);
       const file = await putFile(token, { path, content, message });
-      const pull = await ensurePullRequest(token, { baseBranch, title, body });
+      const directToProduction = config.branch === baseBranch;
+      const pull = directToProduction
+        ? { pullRequest: null, created: false }
+        : await ensurePullRequest(token, { baseBranch, title, body });
       return {
         provider: "github",
         branch: config.branch,
@@ -279,8 +282,8 @@ export function createGitHubAppPublisher({
         filePath: path,
         commitSha: file.commit.sha,
         fileUrl: file.content?.html_url ?? null,
-        pullRequestUrl: pull.pullRequest.html_url,
-        pullRequestNumber: pull.pullRequest.number,
+        pullRequestUrl: pull.pullRequest?.html_url ?? null,
+        pullRequestNumber: pull.pullRequest?.number ?? null,
         createdPullRequest: pull.created,
       };
     },

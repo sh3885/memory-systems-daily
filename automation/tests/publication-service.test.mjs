@@ -256,6 +256,47 @@ describe("GitHub App publisher", () => {
     assert.equal(requests.every((request) => request.headers["user-agent"] === "memory-systems-daily-bot"), true);
   });
 
+  test("writes directly to the production branch without opening a pull request", async () => {
+    const requests = [];
+    const fetchFn = async (url, init = {}) => {
+      const path = new URL(url).pathname;
+      const method = init.method ?? "GET";
+      requests.push({ path, method, body: init.body ? JSON.parse(init.body) : null });
+      if (path === "/app/installations/42/access_tokens") return json({ token: "installation-token" });
+      if (path === "/repos/acme/memory") return json({ default_branch: "main" });
+      if (path === "/repos/acme/memory/git/ref/heads/main") return json({ object: { sha: "base-sha" } });
+      if (path === "/repos/acme/memory/contents/src/pages/posts/post.md" && method === "GET") return json({ message: "Not Found" }, 404);
+      if (path === "/repos/acme/memory/contents/src/pages/posts/post.md" && method === "PUT") {
+        return json({ commit: { sha: "commit-sha" }, content: { html_url: "https://github.test/file" } });
+      }
+      throw new Error(`unexpected request ${method} ${path}`);
+    };
+    const publisher = createGitHubAppPublisher({
+      appId: "1",
+      privateKey: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+      installationId: "42",
+      owner: "acme",
+      repo: "memory",
+      branch: "main",
+      fetchFn,
+      jwtFactory: async () => "jwt",
+    });
+
+    const result = await publisher.publishPost({
+      path: "src/pages/posts/post.md",
+      content: "# Post",
+      message: "Publish post",
+      title: "Publish post",
+      body: "Approved",
+    });
+
+    assert.equal(result.branch, "main");
+    assert.equal(result.pullRequestUrl, null);
+    assert.equal(result.createdPullRequest, false);
+    assert.equal(requests.some((request) => request.path === "/repos/acme/memory/pulls"), false);
+    assert.equal(requests.find((request) => request.method === "PUT").body.branch, "main");
+  });
+
   test("surfaces non-JSON GitHub API responses with status and body text", async () => {
     const publisher = createGitHubAppPublisher({
       appId: "1",

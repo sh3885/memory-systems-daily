@@ -54,7 +54,7 @@ function createRuntime(env) {
         contentDirectory: env.GITHUB_CONTENT_DIRECTORY,
         publicSiteUrl: env.PUBLIC_SITE_URL,
         deploymentVerifier: createHttpDeploymentVerifier({
-          attempts: Number(env.DEPLOYMENT_VERIFY_ATTEMPTS || 4),
+          attempts: Number(env.DEPLOYMENT_VERIFY_ATTEMPTS || 12),
           delayMs: Number(env.DEPLOYMENT_VERIFY_DELAY_MS || 5000),
         }),
       })
