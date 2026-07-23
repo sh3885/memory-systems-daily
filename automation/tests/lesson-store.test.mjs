@@ -260,6 +260,26 @@ describe("D1 lesson store", () => {
     assert.equal((await store.getChallenge(challenge.id)).status, "pending");
   });
 
+  test("finds and invalidates pending approval challenges", async () => {
+    const { lesson } = await prepareReviewReady();
+    const challenge = await store.issueApprovalChallenge({
+      lessonId: lesson.id,
+      telegramUserId: "1234",
+      telegramChatId: "5678",
+      nonce: "server-issued-nonce",
+      expiresAt: "2026-07-23T01:00:00.000Z",
+      operationKey: "challenge:find",
+    });
+
+    assert.equal((await store.findPendingChallengeByNonce({ nonce: "server-issued-nonce" })).id, challenge.id);
+    assert.equal(await store.findPendingChallengeByNonce({ nonce: "wrong" }), null);
+
+    const result = await store.invalidatePendingApprovalChallenges({ lessonId: lesson.id, reason: "test_reset" });
+    assert.equal(result.invalidated, 1);
+    assert.equal((await store.getChallenge(challenge.id)).status, "invalidated");
+    assert.equal(await store.findPendingChallengeByNonce({ nonce: "server-issued-nonce" }), null);
+  });
+
   test("rejects concurrent operation-key reuse with a different challenge binding", async () => {
     const { lesson } = await prepareReviewReady();
     const base = {

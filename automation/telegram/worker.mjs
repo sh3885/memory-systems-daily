@@ -146,6 +146,11 @@ export default {
             text: `Approval failed: ${error.code ?? "ERROR"}`,
             showAlert: true,
           });
+        } else if (update.message?.chat?.id) {
+          await telegram.sendMessage({
+            chatId: update.message.chat.id,
+            text: `처리 중 오류가 났어. 상태를 확인하려면 /status를 보내줘. error=${error.code ?? "ERROR"}`,
+          });
         }
       },
     });

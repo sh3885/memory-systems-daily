@@ -499,6 +499,29 @@ export class D1LessonStore {
     return mapChallenge(row);
   }
 
+  async findPendingChallengeByNonce({ nonce }) {
+    const nonceHash = await sha256Hex(requireText(nonce, "nonce"));
+    const row = await this.db.prepare(`
+      SELECT *
+      FROM approval_challenges
+      WHERE nonce_hash = ?1 AND status = 'pending'
+      LIMIT 1
+    `).bind(nonceHash).first();
+    return mapChallenge(row);
+  }
+
+  async invalidatePendingApprovalChallenges({ lessonId, reason = "superseded" }) {
+    const timestamp = this.now();
+    const result = await this.db.prepare(`
+      UPDATE approval_challenges
+      SET status = 'invalidated',
+          invalidated_at = ?1,
+          invalidation_reason = ?2
+      WHERE lesson_id = ?3 AND status = 'pending'
+    `).bind(timestamp, requireText(reason, "reason"), requireText(lessonId, "lessonId")).run();
+    return { invalidated: result?.meta?.changes ?? 0 };
+  }
+
   async consumeApprovalChallenge({ challengeId, telegramUserId, telegramChatId, nonce, operationKey }) {
     const userId = requireText(telegramUserId, "telegramUserId");
     const chatId = requireText(telegramChatId, "telegramChatId");

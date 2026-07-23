@@ -63,11 +63,17 @@ export function getTelegramActor(update) {
 
 export function parseApprovalCallbackData(data) {
   if (typeof data !== "string" || !data.startsWith("approve:")) return null;
-  const [, challengeId, token] = data.split(":");
-  if (!challengeId || !token || data.split(":").length !== 3) {
+  const parts = data.split(":");
+  if (parts.length === 2 && parts[1]) {
+    return { action: "approve", challengeId: null, token: parts[1] };
+  }
+  if (parts.length === 3 && parts[1] && parts[2]) {
+    return { action: "approve", challengeId: parts[1], token: parts[2] };
+  }
+  if (!parts[1]) {
     throw new TelegramWebhookError("MALFORMED_CALLBACK", "Approval callback payload is malformed", 400);
   }
-  return { action: "approve", challengeId, token };
+  throw new TelegramWebhookError("MALFORMED_CALLBACK", "Approval callback payload is malformed", 400);
 }
 
 function validateUpdate(update) {
@@ -122,6 +128,42 @@ export function createTelegramWebhook({
   const webhookSecret = requiredConfig(env.TELEGRAM_WEBHOOK_SECRET, "TELEGRAM_WEBHOOK_SECRET");
   const allowedUserId = requiredConfig(env.TELEGRAM_ALLOWED_USER_ID, "TELEGRAM_ALLOWED_USER_ID");
   const allowedChatId = requiredConfig(env.TELEGRAM_ALLOWED_CHAT_ID, "TELEGRAM_ALLOWED_CHAT_ID");
+
+  async function completeClaim({ update, claim, result }) {
+    await store.completeTelegramUpdate({
+      botId: configuredBotId,
+      updateId: update.update_id,
+      claimToken: claim.claimToken,
+      result,
+    });
+  }
+
+  async function rejectAndComplete({ update, actor, claim, error, status }) {
+    try {
+      await onApprovalRejected({ update, actor, error });
+    } catch (rejectionError) {
+      console.error("telegram_rejection_notification_failed", {
+        botId: configuredBotId,
+        updateId: update.update_id,
+        error: rejectionError?.message ?? String(rejectionError),
+      });
+    }
+
+    try {
+      await completeClaim({
+        update,
+        claim,
+        result: JSON.stringify({ status, error: publicErrorCode(error) }),
+      });
+    } catch (completionError) {
+      console.error("telegram_update_failure_completion_failed", {
+        botId: configuredBotId,
+        updateId: update.update_id,
+        error: completionError?.message ?? String(completionError),
+      });
+    }
+  }
+
   return async function handle(request) {
     if (request.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
     if (new URL(request.url).pathname !== webhookPath) return json({ ok: false, error: "NOT_FOUND" }, 404);
@@ -158,8 +200,14 @@ export function createTelegramWebhook({
         const callback = parseApprovalCallbackData(update.callback_query.data);
         if (callback?.action === "approve") {
           const binding = await resolveApprovalCallback({ callback, update, actor });
+          const challenge = callback.challengeId
+            ? { id: callback.challengeId }
+            : await store.findPendingChallengeByNonce?.({ nonce: requiredConfig(binding?.nonce, "approval nonce") });
+          if (!challenge?.id) {
+            throw new TelegramWebhookError("CHALLENGE_NOT_FOUND", "Approval challenge not found for callback token", 400);
+          }
           const approval = await store.consumeApprovalChallenge({
-            challengeId: callback.challengeId,
+            challengeId: challenge.id,
             telegramUserId: actor.userId,
             telegramChatId: actor.chatId,
             nonce: requiredConfig(binding?.nonce, "approval nonce"),
@@ -175,23 +223,11 @@ export function createTelegramWebhook({
       }
 
       const result = JSON.stringify({ status: "handled", action: outcome?.action ?? "completed" });
-      await store.completeTelegramUpdate({
-        botId: configuredBotId,
-        updateId: update.update_id,
-        claimToken: claim.claimToken,
-        result,
-      });
+      await completeClaim({ update, claim, result });
       return json({ ok: true, handled: true, ...(outcome ?? {}) });
     } catch (error) {
       if (isKnownHandledError(error)) {
-        await onApprovalRejected({ update, actor, error });
-        const result = JSON.stringify({ status: "rejected", error: publicErrorCode(error) });
-        await store.completeTelegramUpdate({
-          botId: configuredBotId,
-          updateId: update.update_id,
-          claimToken: claim.claimToken,
-          result,
-        });
+        await rejectAndComplete({ update, actor, claim, error, status: "rejected" });
         return json({ ok: true, handled: true, rejected: publicErrorCode(error) });
       }
       console.error("telegram_update_processing_failed", {
@@ -199,7 +235,8 @@ export function createTelegramWebhook({
         updateId: update.update_id,
         error: error?.message ?? String(error),
       });
-      return json({ ok: false, error: "PROCESSING_FAILED" }, 500);
+      await rejectAndComplete({ update, actor, claim, error, status: "failed" });
+      return json({ ok: true, handled: true, failed: publicErrorCode(error) });
     }
   };
 }

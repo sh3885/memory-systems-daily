@@ -193,6 +193,40 @@ describe("Telegram webhook", () => {
     assert.equal((await store.getLesson(lesson.id)).state, "approved");
   });
 
+  test("routes a short approval callback token through the pending challenge lookup", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-23", curriculumRef: "M01-W01" });
+    await store.appendRevision({
+      lessonId: lesson.id,
+      content: "# Review me",
+      createdBy: "writer",
+      changeSummary: "Initial draft",
+      operationKey: "revision:telegram-short",
+    });
+    await store.transitionLesson(lesson.id, "researching", 0);
+    await store.transitionLesson(lesson.id, "draft_ready", 1);
+    await store.transitionLesson(lesson.id, "review_ready", 2);
+    await store.issueApprovalChallenge({
+      lessonId: lesson.id,
+      telegramUserId: "1234",
+      telegramChatId: "5678",
+      nonce: "short-token",
+      expiresAt: "2026-07-23T01:00:00.000Z",
+      operationKey: "challenge:telegram-short",
+    });
+    const handler = createHandler({
+      resolveApprovalCallback: async ({ callback }) => {
+        assert.equal(callback.challengeId, null);
+        assert.equal(callback.token, "short-token");
+        return { nonce: callback.token };
+      },
+    });
+
+    const response = await handler(request(callbackUpdate(22, "approve:short-token")));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).action, "approval_recorded");
+    assert.equal((await store.getLesson(lesson.id)).state, "approved");
+  });
+
   test("records deterministic approval rejection without retrying the update", async () => {
     const handler = createHandler({
       resolveApprovalCallback: async () => ({ nonce: "wrong-nonce" }),
@@ -201,6 +235,24 @@ describe("Telegram webhook", () => {
     assert.equal(response.status, 200);
     assert.equal((await response.json()).rejected, "CHALLENGE_NOT_FOUND");
     const replay = await handler(request(callbackUpdate(21, "approve:challenge_missing:opaque-token")));
+    assert.equal((await replay.json()).duplicate, true);
+  });
+
+  test("completes failed message updates even when rejection notification fails", async () => {
+    const handler = createHandler({
+      onMessage: async () => {
+        throw new Error("sendMessage failed");
+      },
+      onApprovalRejected: async () => {
+        throw new Error("rejection notification failed");
+      },
+    });
+
+    const response = await handler(request(messageUpdate(23, { text: "/review" })));
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).failed, "WEBHOOK_ERROR");
+
+    const replay = await handler(request(messageUpdate(23, { text: "/review" })));
     assert.equal((await replay.json()).duplicate, true);
   });
 });

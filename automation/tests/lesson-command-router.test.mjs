@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import {
   createApprovalPromptService,
   createLessonCommandRouter,
-  LessonRouterError,
 } from "../telegram/lesson-command-router.mjs";
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import { NodeD1Database } from "./node-d1-adapter.mjs";
@@ -272,7 +271,34 @@ describe("lesson command router", () => {
     const result = await router.onMessage({ update: messageUpdate(6, "/review"), actor });
     assert.equal(result.action, "review_ready_with_approval");
     assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
-    assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:challenge_3:tok123");
+    assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:tok123");
+  });
+
+  test("invalidates older pending approval prompts when review is requested again", async () => {
+    const { lesson } = await createDraftReadyLesson();
+    let tokenIndex = 0;
+    const approvalPrompt = createApprovalPromptService({
+      store,
+      now: () => "2026-07-22T00:00:00.000Z",
+      tokenFactory: () => `tok${++tokenIndex}`,
+    });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      approvalPrompt,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const first = await router.onMessage({ update: messageUpdate(40, "/review"), actor });
+    const second = await router.onMessage({ update: messageUpdate(41, "/review"), actor });
+
+    assert.equal(first.action, "review_ready_with_approval");
+    assert.equal(second.action, "review_ready_with_approval");
+    assert.equal((await store.getChallenge(first.challengeId)).status, "invalidated");
+    assert.equal((await store.getChallenge(first.challengeId)).invalidationReason, "new_approval_prompt");
+    assert.equal((await store.getChallenge(second.challengeId)).status, "pending");
+    assert.equal(telegram.messages.at(-1).replyMarkup.inline_keyboard[0][0].callback_data, "approve:tok2");
+    assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
   });
 
   test("guides the user when /review is sent before any draft exists", async () => {
@@ -317,7 +343,7 @@ describe("lesson command router", () => {
     const result = await router.onMessage({ update: messageUpdate(34, "/review"), actor });
     assert.equal(result.action, "review_ready_with_approval");
     assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
-    assert.equal(telegram.messages.at(-1).replyMarkup.inline_keyboard[0][0].callback_data, "approve:challenge_3:tok123");
+    assert.equal(telegram.messages.at(-1).replyMarkup.inline_keyboard[0][0].callback_data, "approve:tok123");
   });
 
   test("saves an uploaded markdown document as the current draft", async () => {
@@ -438,7 +464,7 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /github.test\/pr\/1/);
   });
 
-  test("rejects too-long approval callback data before sending a button", async () => {
+  test("keeps approval callback data short even with long challenge ids", async () => {
     await createDraftReadyLesson();
     const approvalPrompt = async () => ({ challenge: { id: "challenge_" + "x".repeat(60) }, token: "tok123" });
     const router = createLessonCommandRouter({
@@ -448,9 +474,8 @@ describe("lesson command router", () => {
       now: () => "2026-07-22T08:30:00+09:00",
     });
 
-    await assert.rejects(
-      () => router.onMessage({ update: messageUpdate(7, "/review"), actor }),
-      (error) => error instanceof LessonRouterError && error.code === "CALLBACK_DATA_TOO_LONG",
-    );
+    const result = await router.onMessage({ update: messageUpdate(7, "/review"), actor });
+    assert.equal(result.action, "review_ready_with_approval");
+    assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:tok123");
   });
 });

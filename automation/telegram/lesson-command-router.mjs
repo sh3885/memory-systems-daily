@@ -69,7 +69,8 @@ function normalizeMode(value) {
 }
 
 function approvalKeyboard({ challengeId, token }) {
-  const callbackData = `approve:${requireText(challengeId, "challengeId")}:${requireText(token, "token")}`;
+  requireText(challengeId, "challengeId");
+  const callbackData = `approve:${requireText(token, "token")}`;
   if (new TextEncoder().encode(callbackData).length > 64) {
     throw new LessonRouterError("CALLBACK_DATA_TOO_LONG", "Approval callback data exceeds Telegram's 64-byte limit", {
       challengeId,
@@ -261,6 +262,9 @@ export function createApprovalPromptService({
     const token = requireText(tokenFactory(), "token");
     const issuedAt = new Date(now());
     const expiresAt = new Date(issuedAt.getTime() + expiresInMs).toISOString();
+    if (store.invalidatePendingApprovalChallenges) {
+      await store.invalidatePendingApprovalChallenges({ lessonId: lesson.id, reason: "new_approval_prompt" });
+    }
     const challenge = await store.issueApprovalChallenge({
       lessonId: lesson.id,
       telegramUserId: actor.userId,
