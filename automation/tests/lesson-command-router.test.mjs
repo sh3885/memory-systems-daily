@@ -206,7 +206,7 @@ describe("lesson command router", () => {
     assert.match(prompt, /YAML frontmatter 없이/);
     assert.match(prompt, /오늘 권장 섹션은 자연스러운 독자용 소제목으로 풀어 쓴다/);
   assert.match(prompt, /공개 출처 기반으로 설명하는 한국어 기술 튜터/);
-  assert.match(prompt, /산출물 선택 기준을 통과할 때만 넣는다/);
+  assert.match(prompt, /다이어그램이 실질적으로 도움이 되면 그림을 생략하거나 표·텍스트로 대체하지 않는다/);
   assert.match(prompt, /반드시 draft\.md 파일 하나로 제공/);
   assert.match(prompt, /다이어그램을 그리기 좋은 경우/);
   assert.doesNotMatch(prompt, /Claude 웹/);
@@ -214,7 +214,11 @@ describe("lesson command router", () => {
     assert.doesNotMatch(prompt, /Markdown 계산표 1개와 inline SVG 다이어그램 1개를 반드시/);
     assert.match(prompt, /검증 과정이나 작성 메모를 별도 부록 섹션으로 만들지 않는다/);
     assert.doesNotMatch(prompt, /Claim ledger/);
-    assert.match(prompt, /SVG, HTML, Mermaid, XML/);
+    assert.match(prompt, /다이어그램을 하나 이상 넣는다/);
+    assert.match(prompt, /Markdown 코드블록 밖의 완전한 `<svg>\.\.\.<\/svg>`/);
+    assert.match(prompt, /독자 화면에는 SVG 코드나 `<text \.\.\.>`가 보이지 않는다/);
+    assert.match(prompt, /SVG 외의 HTML, Mermaid, XML 코드는 넣지 않는다/);
+    assert.match(prompt, /반드시 draft\.md 파일 하나로 제공/);
     assert.match(prompt, /최종 답변 전에 독자 관점에서 한 번 검토한다/);
     assert.match(prompt, /발견한 개선점을 반영해 글 전체를 다시 다듬는다/);
     assert.match(prompt, /검토 과정, 체크리스트, 초안은 출력하지 않는다/);

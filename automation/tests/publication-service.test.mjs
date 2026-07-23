@@ -88,7 +88,7 @@ describe("publication rendering and service", () => {
     assert.match(content, /# LLM memory bottleneck/);
   });
 
-  test("removes workflow metadata, raw SVG, and internal sections from public Markdown", () => {
+  test("renders SVG diagrams as images while removing workflow metadata and internal sections", () => {
     const cleaned = cleanPublicMarkdown([
       "---",
       "title: Internal draft",
@@ -109,6 +109,7 @@ describe("publication rendering and service", () => {
 
     assert.match(cleaned, /# Public title/);
     assert.match(cleaned, /## 자주 묻는 질문/);
+    assert.match(cleaned, /!\[기술 다이어그램 1\]\(data:image\/svg\+xml;base64,/);
     assert.doesNotMatch(cleaned, /curriculum ref|<svg|<text|Claim ledger|확정 사실|다음 질문/);
   });
 

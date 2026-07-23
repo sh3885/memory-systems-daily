@@ -9,6 +9,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-053 Restore rendered diagrams in drafting and publication, completed 2026-07-23. See `tasks/handoffs/T-053.md`.
 - T-052 Add self-review and rewrite to the manual draft prompt, completed 2026-07-23. See `tasks/handoffs/T-052.md`.
 - T-051 Make generated posts reader-facing and remove AI/process artifacts, completed 2026-07-23. See `tasks/handoffs/T-051.md`.
 - T-050 Publish approved posts directly to main, completed 2026-07-23. See `tasks/handoffs/T-050.md`.

@@ -22,14 +22,24 @@ describe("draft quality checks", () => {
     );
   });
 
-  test("rejects frontmatter and raw SVG markup", () => {
+  test("accepts a complete SVG diagram for publication rendering", () => {
+    const result = validateDraftContent([
+      "# Draft",
+      "",
+      "<svg><text>diagram</text></svg>",
+    ].join("\n"));
+
+    assert.equal(result.ok, true);
+  });
+
+  test("rejects frontmatter and unsupported raw HTML", () => {
     const result = validateDraftContent([
       "---",
       "title: Draft",
       "---",
       "# Draft",
       "",
-      "<svg><text>diagram</text></svg>",
+      "<div>diagram</div>",
     ].join("\n"));
 
     assert.equal(result.ok, false);

@@ -30,8 +30,11 @@ function frontmatter(content) {
   return text.slice(4, end);
 }
 
-function hasRawDiagramOrHtml(content) {
-  return /<\/?(?:svg|text|path|rect|circle|g|defs|marker)\b/i.test(content) || /```(?:svg|html|xml|mermaid)\b/i.test(content);
+function hasUnsupportedRawDiagramOrHtml(content) {
+  const text = String(content ?? "");
+  if (/```(?:svg|html|xml|mermaid)\b/i.test(text)) return true;
+  const withoutCompleteSvg = text.replace(/<svg\b[\s\S]*?<\/svg>/gi, "");
+  return /<svg\b|<\/?(?:text|path|rect|circle|g|defs|marker|html|body|script|div|span)\b/i.test(withoutCompleteSvg);
 }
 
 export function validateDraftContent(content) {
@@ -42,7 +45,7 @@ export function validateDraftContent(content) {
   if (!hasHeading(text)) errors.push("MISSING_H1");
   if (hasLikelyMojibake(text)) errors.push("LIKELY_MOJIBAKE");
   if (frontmatter(text)) errors.push("FRONTMATTER_NOT_ALLOWED");
-  if (hasRawDiagramOrHtml(text)) errors.push("RAW_DIAGRAM_OR_HTML_NOT_ALLOWED");
+  if (hasUnsupportedRawDiagramOrHtml(text)) errors.push("RAW_DIAGRAM_OR_HTML_NOT_ALLOWED");
 
   return { ok: errors.length === 0, errors, warnings };
 }

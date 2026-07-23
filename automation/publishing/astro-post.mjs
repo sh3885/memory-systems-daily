@@ -27,9 +27,31 @@ function stripSections(content, headings) {
   return kept.join("\n");
 }
 
+function base64EncodeUtf8(value) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function safeSvg(svg) {
+  return String(svg)
+    .replace(/<script\b[\s\S]*?<\/script>\s*/gi, "")
+    .replace(/<foreignObject\b[\s\S]*?<\/foreignObject>\s*/gi, "")
+    .replace(/\s(?:on[a-z]+|href|xlink:href)\s*=\s*(['"])(?:\s*javascript:|\s*data:text\/html)[\s\S]*?\1/gi, "");
+}
+
+function renderSvgDiagrams(content) {
+  let index = 0;
+  return content.replace(/<svg\b[\s\S]*?<\/svg>\s*/gi, (svg) => {
+    index += 1;
+    return `![기술 다이어그램 ${index}](data:image/svg+xml;base64,${base64EncodeUtf8(safeSvg(svg))})\n\n`;
+  });
+}
+
 export function cleanPublicMarkdown(content) {
   let text = stripLeadingFrontmatter(normalizeText(content));
-  text = text.replace(/<svg\b[\s\S]*?<\/svg>\s*/gi, "");
+  text = renderSvgDiagrams(text);
   text = text.replace(/^####\s+왜 이 그림이 필요한가[\s\S]*?(?=^###\s|^##\s|$)/gim, "");
   text = text.replace(/^>\s*(?:curriculum\s*ref|커리큘럼\s*ref|오늘\s*날짜)\s*:.*\n?/gim, "");
   text = stripSections(text, [

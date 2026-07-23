@@ -14,6 +14,9 @@ describe("daily lesson prompts", () => {
     assert.equal(lesson?.theme, "LLM");
     assert.equal(lesson?.postType, "Foundation Explainer");
     assert.match(context.text, /다이어그램을 그리기 좋은 경우/);
+    assert.match(context.text, /다이어그램을 하나 이상 넣는다/);
+    assert.match(context.text, /Markdown 코드블록 밖의 완전한 `<svg>\.\.\.<\/svg>`/);
+    assert.match(context.text, /게시 과정이 이를 실제 이미지로 변환/);
     assert.match(context.text, /이 산출물이 없으면 독자가 이해하지 못하는 것은 무엇인가/);
     assert.match(context.text, /주제 축\(category\): LLM/);
     assert.doesNotMatch(context.text, /필수 산출물/);
