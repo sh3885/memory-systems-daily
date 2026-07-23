@@ -46,6 +46,14 @@ function normalizeApiBaseUrl(value) {
   return url.toString().replace(/\/$/, "");
 }
 
+function normalizeFilePath(value) {
+  const filePath = requireText(value, "filePath");
+  if (filePath.includes("..") || filePath.startsWith("/") || filePath.includes("\\")) {
+    throw new TelegramClientError("INVALID_INPUT", "filePath is invalid", { field: "filePath" });
+  }
+  return filePath;
+}
+
 async function parseTelegramResponse(response) {
   let body;
   try {
@@ -88,8 +96,38 @@ export function createTelegramClient({
     return parseTelegramResponse(response);
   }
 
+  async function getFile({ fileId } = {}) {
+    return call("getFile", { file_id: requireText(fileId, "fileId") });
+  }
+
+  async function downloadFileText({ filePath, maxBytes = 512_000 } = {}) {
+    const path = normalizeFilePath(filePath);
+    const response = await fetchImpl(`${baseUrl}/file/bot${token}/${path}`);
+    if (!response.ok) {
+      throw new TelegramClientError("TELEGRAM_HTTP_ERROR", "Telegram file download failed", {
+        status: response.status,
+      });
+    }
+    const contentLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+      throw new TelegramClientError("FILE_TOO_LARGE", "Telegram file is too large", { maxBytes, contentLength });
+    }
+    const text = await response.text();
+    if (new TextEncoder().encode(text).length > maxBytes) {
+      throw new TelegramClientError("FILE_TOO_LARGE", "Telegram file is too large", { maxBytes });
+    }
+    return text;
+  }
+
   return {
     call,
+    getFile,
+    downloadFileText,
+
+    async downloadDocumentText({ fileId, maxBytes } = {}) {
+      const file = await getFile({ fileId });
+      return downloadFileText({ filePath: file.file_path, maxBytes });
+    },
 
     sendMessage({
       chatId,

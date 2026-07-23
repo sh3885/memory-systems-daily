@@ -34,7 +34,7 @@ function requireText(value, field) {
 }
 
 function getMessageText(update) {
-  return String(update?.message?.text ?? "").trim();
+  return String(update?.message?.text ?? update?.message?.caption ?? "").trim();
 }
 
 function preview(text, maxLength = 1800) {
@@ -48,6 +48,16 @@ function extractCommand(text) {
   const [rawCommand, ...rest] = text.split(/\s+/);
   const command = rawCommand.split("@")[0].toLowerCase();
   return { command, argument: rest.join(" ").trim() };
+}
+
+function getMessageDocument(update) {
+  return update?.message?.document ?? null;
+}
+
+function isMarkdownDocument(document) {
+  const fileName = String(document?.file_name ?? "").trim().toLowerCase();
+  const mimeType = String(document?.mime_type ?? "").trim().toLowerCase();
+  return fileName.endsWith(".md") || fileName.endsWith(".markdown") || mimeType === "text/markdown" || mimeType === "text/plain";
 }
 
 function normalizeMode(value) {
@@ -276,6 +286,7 @@ export function createLessonCommandRouter({
   approvalPrompt,
   publicationRetry = null,
   aiMode = "manual",
+  maxDraftFileBytes = 512_000,
   now = () => new Date().toISOString(),
   timeZone = DEFAULT_TIME_ZONE,
 } = {}) {
@@ -442,6 +453,29 @@ export function createLessonCommandRouter({
     return { action: "manual_draft_saved", revisionId: nextRevision.id };
   }
 
+  async function handleDraftDocument({ update, actor, document }) {
+    if (!telegram.downloadDocumentText) {
+      await send(actor.chatId, "현재 Worker가 파일 다운로드 기능을 아직 지원하지 않아. 우선 /draft 뒤에 Markdown 본문을 붙여넣어줘.");
+      return { action: "draft_document_unsupported" };
+    }
+    if (!isMarkdownDocument(document)) {
+      await send(actor.chatId, "초안 파일은 .md 또는 .markdown 파일로 보내줘. Telegram에서 파일 첨부 후 caption에 /draft를 적으면 돼.");
+      return { action: "draft_document_invalid_type" };
+    }
+    if (Number(document.file_size) > maxDraftFileBytes) {
+      await send(actor.chatId, `파일이 너무 커. 초안 .md 파일은 ${Math.floor(maxDraftFileBytes / 1024)}KB 이하로 보내줘.`);
+      return { action: "draft_document_too_large" };
+    }
+    let content;
+    try {
+      content = await telegram.downloadDocumentText({ fileId: document.file_id, maxBytes: maxDraftFileBytes });
+    } catch (error) {
+      await send(actor.chatId, `파일을 읽지 못했어. .md 파일로 다시 보내줘. error=${error?.code ?? error?.message ?? "download_failed"}`);
+      return { action: "draft_document_download_failed" };
+    }
+    return handleDraft({ update, actor, content });
+  }
+
   async function handleReview({ update, actor }) {
     const { lesson } = await currentLesson(store, now, timeZone);
     if (!lesson) {
@@ -515,11 +549,14 @@ export function createLessonCommandRouter({
   return {
     async onMessage({ update, actor }) {
       const text = getMessageText(update);
+      const document = getMessageDocument(update);
+      if (!text && document) return handleDraftDocument({ update, actor, document });
       if (!text) {
         await send(actor.chatId, "텍스트 메시지만 처리할 수 있어.");
         return { action: "unsupported_message" };
       }
       const command = extractCommand(text);
+      if (document && (!command || command.command === "/draft")) return handleDraftDocument({ update, actor, document });
       if (!command) {
         if (mode === "api") return handleQuestion({ update, actor, question: text });
         return handleManualQuestion({ update, actor, question: text });
@@ -534,7 +571,7 @@ export function createLessonCommandRouter({
       if (command.command === "/publish-retry") return handlePublishRetry({ update, actor });
       if (command.command === "/draft") {
         if (!command.argument) {
-          await send(actor.chatId, "사용법: /draft Claude 웹에서 받은 Markdown 초안을 붙여넣어줘.");
+          await send(actor.chatId, "사용법: /draft Claude 웹에서 받은 Markdown 초안을 붙여넣어줘. 글이 길면 .md 파일을 첨부하고 caption에 /draft를 적어서 보내면 돼.");
           return { action: "draft_usage" };
         }
         return handleDraft({ update, actor, content: command.argument });

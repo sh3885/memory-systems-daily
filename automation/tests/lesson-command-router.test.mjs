@@ -33,6 +33,19 @@ function messageUpdate(updateId, text) {
   };
 }
 
+function documentUpdate(updateId, document, caption = "") {
+  return {
+    update_id: updateId,
+    message: {
+      message_id: updateId,
+      from: { id: 1234 },
+      chat: { id: 5678, type: "private" },
+      caption,
+      document,
+    },
+  };
+}
+
 function captureTelegram() {
   const messages = [];
   const callbacks = [];
@@ -48,6 +61,7 @@ function captureTelegram() {
         callbacks.push(callback);
         return true;
       },
+      downloadDocumentText: async () => "# File draft\n\nLong Markdown body",
     },
   };
 }
@@ -304,6 +318,76 @@ describe("lesson command router", () => {
     assert.equal(result.action, "review_ready_with_approval");
     assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
     assert.equal(telegram.messages.at(-1).replyMarkup.inline_keyboard[0][0].callback_data, "approve:challenge_3:tok123");
+  });
+
+  test("saves an uploaded markdown document as the current draft", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({
+      update: documentUpdate(35, {
+        file_id: "file_md_1",
+        file_name: "claude-draft.md",
+        mime_type: "text/markdown",
+        file_size: 1234,
+      }),
+      actor,
+    });
+
+    assert.equal(result.action, "manual_draft_saved");
+    const updated = await store.getLesson(lesson.id);
+    assert.equal(updated.state, "draft_ready");
+    assert.equal(updated.currentRevisionNumber, 1);
+    const revision = await store.getRevision(updated.currentRevisionId);
+    assert.match(revision.content, /File draft/);
+  });
+
+  test("uses an uploaded markdown document when caption is /draft", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({
+      update: documentUpdate(36, {
+        file_id: "file_md_2",
+        file_name: "claude-draft.md",
+        mime_type: "text/markdown",
+        file_size: 1234,
+      }, "/draft"),
+      actor,
+    });
+
+    assert.equal(result.action, "manual_draft_saved");
+    assert.equal((await store.getLesson(lesson.id)).currentRevisionNumber, 1);
+  });
+
+  test("rejects non-markdown draft uploads with guidance", async () => {
+    await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({
+      update: documentUpdate(37, {
+        file_id: "file_docx_1",
+        file_name: "draft.docx",
+        mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        file_size: 1234,
+      }, "/draft"),
+      actor,
+    });
+
+    assert.equal(result.action, "draft_document_invalid_type");
+    assert.match(telegram.messages[0].text, /\.md/);
   });
 
   test("retries a failed publication through an injected publisher callback", async () => {

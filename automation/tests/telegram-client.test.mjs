@@ -79,4 +79,43 @@ describe("Telegram client", () => {
       (error) => error instanceof TelegramClientError && error.code === "TELEGRAM_API_ERROR",
     );
   });
+
+  test("downloads Telegram document text through getFile", async () => {
+    const calls = [];
+    const client = createTelegramClient({
+      botToken: "123:abc",
+      fetchImpl: async (url, init = {}) => {
+        calls.push({ url, init });
+        if (url.endsWith("/getFile")) return jsonResponse({ ok: true, result: { file_path: "documents/draft.md" } });
+        if (url.endsWith("/file/bot123:abc/documents/draft.md")) {
+          return new Response("# Draft\n\nBody", {
+            status: 200,
+            headers: { "content-length": "13" },
+          });
+        }
+        throw new Error(`unexpected ${url}`);
+      },
+    });
+
+    const text = await client.downloadDocumentText({ fileId: "file_1", maxBytes: 1000 });
+    assert.equal(text, "# Draft\n\nBody");
+    assert.equal(calls[0].url, "https://api.telegram.org/bot123:abc/getFile");
+    assert.deepEqual(JSON.parse(calls[0].init.body), { file_id: "file_1" });
+    assert.equal(calls[1].url, "https://api.telegram.org/file/bot123:abc/documents/draft.md");
+  });
+
+  test("rejects oversized downloaded files", async () => {
+    const client = createTelegramClient({
+      botToken: "123:abc",
+      fetchImpl: async (url) => {
+        if (url.endsWith("/getFile")) return jsonResponse({ ok: true, result: { file_path: "documents/draft.md" } });
+        return new Response("too large", { status: 200, headers: { "content-length": "999" } });
+      },
+    });
+
+    await assert.rejects(
+      () => client.downloadDocumentText({ fileId: "file_1", maxBytes: 10 }),
+      (error) => error instanceof TelegramClientError && error.code === "FILE_TOO_LARGE",
+    );
+  });
 });
