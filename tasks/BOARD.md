@@ -4,16 +4,12 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
-- T-055 Diagnose and harden production publishing end to end.
-  - Owner: root agent
-  - Owned paths: `automation/publishing/`, `automation/telegram/`, `automation/tests/`, `docs/`, `tasks/active/T-055.md`, `tasks/handoffs/T-055.md`, `tasks/BOARD.md`
-  - Done when: the active production publish is diagnosed, retry timing is bounded and observable, and realistic long-content publishing is exercised against the live workflow.
-
 ## Ready
 
 
 ## Done
 
+- T-055 Diagnose and harden production publishing end to end, completed 2026-07-23. See `tasks/handoffs/T-055.md`.
 - T-054 Treat uploaded Markdown documents as drafts automatically, completed 2026-07-23. See `tasks/handoffs/T-054.md`.
 - T-053 Restore rendered diagrams in drafting and publication, completed 2026-07-23. See `tasks/handoffs/T-053.md`.
 - T-052 Add self-review and rewrite to the manual draft prompt, completed 2026-07-23. See `tasks/handoffs/T-052.md`.
