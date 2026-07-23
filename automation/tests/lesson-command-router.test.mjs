@@ -215,17 +215,15 @@ describe("lesson command router", () => {
     assert.match(prompt, /claim ledger/);
   });
 
-  test("answers questions through an injected provider and can create a revision", async () => {
+  test("answers questions through an injected provider without changing the draft", async () => {
     const { lesson } = await createDraftReadyLesson();
     const router = createLessonCommandRouter({
       store,
       telegram: telegram.client,
       aiMode: "api",
       now: () => "2026-07-22T08:30:00+09:00",
-      answerProvider: async ({ question, revision }) => ({
+      answerProvider: async ({ question }) => ({
         answer: `답변: ${question}`,
-        revisedContent: `${revision.content}\n\n## Q&A 반영\n\n${question}`,
-        changeSummary: "Added Q&A clarification",
         provider: {
           id: "anthropic",
           model: "claude-sonnet-5",
@@ -235,19 +233,19 @@ describe("lesson command router", () => {
     });
 
     const result = await router.onMessage({ update: messageUpdate(4, "KV cache가 왜 bandwidth 병목이야?"), actor });
-    assert.equal(result.action, "question_answered_and_revised");
+    assert.equal(result.action, "question_answered");
     assert.match(telegram.messages[0].text, /답변:/);
     const updated = await store.getLesson(lesson.id);
-    assert.equal(updated.state, "discussing");
-    assert.equal(updated.currentRevisionNumber, 2);
+    assert.equal(updated.state, "draft_ready");
+    assert.equal(updated.currentRevisionNumber, 1);
     const turns = await store.getConversationTurnsForLesson(lesson.id);
     assert.equal(turns.length, 1);
-    assert.equal(turns[0].status, "revised");
-    assert.equal(turns[0].appliedRevisionId, updated.currentRevisionId);
+    assert.equal(turns[0].status, "answered");
+    assert.equal(turns[0].appliedRevisionId, null);
     assert.equal(turns[0].providerId, "anthropic");
   });
 
-  test("sends manual revision prompts with adaptive guidance and saves pasted drafts", async () => {
+  test("sends a manual question prompt and saves pasted final drafts", async () => {
     const { lesson } = await createDraftReadyLesson();
     const router = createLessonCommandRouter({
       store,
@@ -257,12 +255,8 @@ describe("lesson command router", () => {
 
     assert.equal((await router.onMessage({ update: messageUpdate(21, "KV cache가 뭐야?"), actor })).action, "manual_question_prompt_sent");
     assert.match(telegram.messages.at(-1).text, /질문:/);
-    assert.equal((await router.onMessage({ update: messageUpdate(22, "/revise bandwidth 관점 추가"), actor })).action, "manual_revision_prompt_sent");
-    assert.match(telegram.messages.at(-1).text, /수정 요구사항:/);
-    assert.match(telegram.messages.at(-1).text, /없는 산출물을 억지로 추가하지 않는다/);
-
     const saved = await router.onMessage({
-      update: messageUpdate(23, [
+      update: messageUpdate(22, [
         "/draft # Claude 초안",
         "",
         "복사한 본문",
@@ -275,26 +269,6 @@ describe("lesson command router", () => {
     assert.equal(saved.action, "manual_draft_saved");
     const updated = await store.getLesson(lesson.id);
     assert.equal(updated.currentRevisionNumber, 2);
-    assert.equal(updated.state, "discussing");
-  });
-
-  test("creates a revision from /revise instructions in api mode", async () => {
-    const { lesson } = await createDraftReadyLesson();
-    const router = createLessonCommandRouter({
-      store,
-      telegram: telegram.client,
-      aiMode: "api",
-      now: () => "2026-07-22T08:30:00+09:00",
-      revisionProvider: async ({ instruction, currentContent }) => ({
-        content: `${currentContent}\n\n## 보완\n\n${instruction}`,
-        changeSummary: "Manual Telegram revision",
-      }),
-    });
-
-    const result = await router.onMessage({ update: messageUpdate(5, "/revise DRAM bandwidth 관점 추가"), actor });
-    assert.equal(result.action, "revision_created");
-    assert.match(telegram.messages[0].text, /revision 2/);
-    const updated = await store.getLesson(lesson.id);
     assert.equal(updated.state, "discussing");
   });
 

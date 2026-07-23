@@ -143,7 +143,8 @@ describe("Worker Telegram manual/api hybrid flow", () => {
     assert.equal((await response.json()).action, "manual_question_prompt_sent");
     assert.equal(requests.some((requestLog) => requestLog.url.endsWith("/messages")), false);
     const telegram = requests.find((requestLog) => requestLog.url.includes("/sendMessage"));
-    assert.match(telegram.body.text, /Claude 웹/);
+    assert.match(telegram.body.text, /아래 질문에 답해줘/);
+    assert.doesNotMatch(telegram.body.text, /Claude 웹/);
 
     requests = [];
     const apiRequest = new Request("https://example.test/telegram/webhook", {

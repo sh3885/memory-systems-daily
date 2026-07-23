@@ -19,18 +19,16 @@ const HELP_TEXT = [
   "/next - 다음 커리큘럼 주제를 오늘의 추가 lesson으로 열기",
   "/use <ref> - 오늘 열린 특정 lesson을 현재 작업 대상으로 선택",
   "/status - 글 작성, 승인, 웹 반영 상태 확인",
-  "/prompt - 오늘 lesson 기반 Claude 웹용 초안 프롬프트 생성",
-  "/draft <Markdown> - Claude 웹 결과를 현재 lesson의 새 revision으로 저장",
-  "/revise <요청> - 현재 draft를 고치기 위한 Claude 웹용 수정 프롬프트 생성",
+  "/prompt - 오늘 lesson 기반 초안 프롬프트 생성",
+  "/draft <Markdown> - 최종 Markdown을 현재 lesson의 새 revision으로 저장",
   "/review - 최신 revision을 검토 상태로 바꾸고 승인 버튼 받기",
   "/publish-retry - GitHub 글 생성, Pages 배포 확인, 웹 반영 재시도",
   "/deploy-retry - /publish-retry와 동일",
   "/verify-url - /publish-retry와 동일. 실제 URL 본문 검증까지 수행",
   "/ask-api <질문> - 이번 질문만 Claude API로 답변",
-  "/revise-api <요청> - 이번 수정만 Claude API로 revision 저장",
   "/help 또는 /commands - 이 도움말 보기",
   "",
-  "기본은 manual mode야. /prompt -> Claude 웹 -> /draft -> /review -> 승인 버튼 순서로 쓰면 돼.",
+  "기본 흐름: /prompt -> 채팅형 AI에서 학습·작성·수정 -> 최종 .md 업로드(/draft) -> /review -> 승인 버튼",
 ].join("\n");
 
 function requireText(value, field) {
@@ -154,31 +152,6 @@ function buildQuestionPrompt({ question, lessonDate, lesson, revision }) {
   ].join("\n");
 }
 
-function buildRevisionPrompt({ instruction, lesson, revision }) {
-  const context = lessonPromptContext(lesson);
-  return [
-    "아래 지시와 현재 초안을 바탕으로 수정본을 작성해줘.",
-    "",
-    "[복사 시작]",
-    "너는 한국어 기술 블로그 편집자다.",
-    "아래 현재 초안을 수정 요구사항에 맞게 고쳐라.",
-    "수정한 전체 Markdown 문서는 반드시 revised-draft.md 파일 하나로 제공한다. 채팅 본문에는 파일 내용의 요약이나 코드블록을 반복하지 않는다.",
-    "새로운 factual claim을 추가할 때는 public source 후보를 함께 남겨라.",
-    "기존 계산, 표, 실험, 다이어그램은 설명에 도움이 될 때만 유지하거나 고친다. 없는 산출물을 억지로 추가하지 않는다.",
-    "",
-    `커리큘럼 ref: ${lesson?.curriculumRef ?? "아직 미정"}`,
-    "",
-    context.text,
-    "",
-    "수정 요구사항:",
-    instruction,
-    "",
-    "현재 초안:",
-    revision?.content ?? "(현재 초안 없음)",
-    "[복사 끝]",
-  ].join("\n");
-}
-
 async function currentLesson(store, now, timeZone) {
   const lessonDate = dateInTimeZone(now(), timeZone);
   try {
@@ -238,7 +211,7 @@ async function transitionToReviewReady(store, lesson) {
 
 function nextActionFor({ lesson, revision, publication }) {
   if (!lesson) return "08:30 KST 스케줄러가 lesson을 만들었는지 확인하거나 /today를 다시 확인";
-  if (!revision) return "/prompt로 Claude 웹용 초안 프롬프트를 만들고 결과를 /draft로 저장";
+  if (!revision) return "/prompt로 초안 프롬프트를 만들고 최종 .md를 /draft로 저장";
   if (lesson.state === "draft_ready" || lesson.state === "discussing") return "/review로 승인 버튼 생성";
   if (lesson.state === "review_ready") return "텔레그램 승인 버튼을 눌러 웹 반영 진행";
   if (lesson.state === "approved" || lesson.state === "publishing" || lesson.state === "publish_failed") return "/publish-retry로 글 생성, Pages 배포 확인, URL 검증 재시도";
@@ -288,11 +261,7 @@ export function createLessonCommandRouter({
   store,
   telegram,
   answerProvider = async ({ question }) => ({
-    answer: `Claude API provider가 연결되지 않았어. API를 쓰지 않는 manual mode에서는 /prompt 또는 /revise로 Claude 웹용 프롬프트를 받아 사용해줘.\n\n질문: ${question}`,
-  }),
-  revisionProvider = async ({ instruction, currentContent }) => ({
-    content: `${currentContent.trim()}\n\n## Revision request\n\n${instruction}`,
-    changeSummary: "Applied Telegram revision instruction",
+    answer: `AI API provider가 연결되지 않았어. 기본 흐름에서는 /prompt를 받아 채팅형 AI에서 질문과 수정을 진행해줘.\n\n질문: ${question}`,
   }),
   approvalPrompt,
   publicationRetry = null,
@@ -323,7 +292,7 @@ export function createLessonCommandRouter({
       `Revision: ${lesson.currentRevisionNumber || 0}`,
     ];
     if (revision) lines.push("", preview(revision.content));
-    else lines.push("", "아직 초안 revision이 없어. /prompt로 Claude 웹용 초안 프롬프트를 만들 수 있어.");
+    else lines.push("", "아직 초안 revision이 없어. /prompt로 초안 프롬프트를 만들 수 있어.");
     await send(actor.chatId, lines.join("\n"));
     return { action: "today_sent", lessonId: lesson.id };
   }
@@ -377,7 +346,7 @@ export function createLessonCommandRouter({
       "다음 학습 주제를 열었어.",
       "커리큘럼: " + nextLesson.curriculumRef,
       "상태: " + nextLesson.state,
-      "이제 /prompt를 보내면 이 주제의 Claude 웹용 초안을 받을 수 있어.",
+      "이제 /prompt를 보내면 이 주제의 초안 프롬프트를 받을 수 있어.",
     ].join("\n"));
     return { action: "next_lesson_created", lessonId: nextLesson.id, curriculumRef: nextLesson.curriculumRef };
   }
@@ -439,73 +408,23 @@ export function createLessonCommandRouter({
     const revision = lesson ? await currentRevision(store, lesson) : null;
     const response = await answerProvider({ question, lessonDate, lesson, revision, update, actor });
     const answer = requireText(response?.answer, "answer");
-    let updatedRevision = null;
-    if (lesson && response?.revisedContent) {
-      updatedRevision = await store.appendRevision({
-        lessonId: lesson.id,
-        content: response.revisedContent,
-        createdBy: "telegram-qna",
-        changeSummary: response.changeSummary ?? "Updated from Telegram Q&A",
-        operationKey: `telegram:qna-revision:${update.update_id}`,
-      });
-      await transitionToDiscussionIfNeeded(store, lesson);
-    }
     if (store.recordConversationTurn) {
       await store.recordConversationTurn({
         lessonId: lesson?.id ?? null,
         revisionId: revision?.id ?? null,
-        appliedRevisionId: updatedRevision?.id ?? null,
+        appliedRevisionId: null,
         telegramUpdateId: update.update_id,
         telegramUserId: actor.userId,
         telegramChatId: actor.chatId,
         question,
         answer,
-        status: updatedRevision ? "revised" : "answered",
+        status: "answered",
         provider: response.provider,
         operationKey: `telegram:conversation:${update.update_id}`,
       });
     }
     await send(actor.chatId, answer);
-    return { action: updatedRevision ? "question_answered_and_revised" : "question_answered" };
-  }
-
-  async function handleRevise({ update, actor, instruction }) {
-    const { lesson } = await currentLesson(store, now, timeZone);
-    if (!lesson) {
-      await send(actor.chatId, "수정할 오늘 학습 세션이 아직 없어.");
-      return { action: "revise_missing_lesson" };
-    }
-    const revision = await currentRevision(store, lesson);
-    if (!revision) {
-      await send(actor.chatId, "수정할 현재 revision이 아직 없어.");
-      return { action: "revise_missing_revision" };
-    }
-    const result = await revisionProvider({ instruction, lesson, revision, currentContent: revision.content, update, actor });
-    const nextRevision = await store.appendRevision({
-      lessonId: lesson.id,
-      content: requireText(result?.content, "content"),
-      createdBy: "telegram-revision",
-      changeSummary: result?.changeSummary ?? "Updated from Telegram revision command",
-      operationKey: `telegram:revise:${update.update_id}`,
-    });
-    await transitionToDiscussionIfNeeded(store, lesson);
-    await send(actor.chatId, `수정 revision ${nextRevision.revisionNumber}을 저장했어. /today로 확인하거나 /review로 검토 단계로 넘길 수 있어.`);
-    return { action: "revision_created", revisionId: nextRevision.id };
-  }
-
-  async function handleManualRevise({ actor, instruction }) {
-    const { lesson } = await currentLesson(store, now, timeZone);
-    if (!lesson) {
-      await send(actor.chatId, "수정할 오늘 학습 세션이 아직 없어. 먼저 /today 상태를 확인해줘.");
-      return { action: "manual_revise_missing_lesson" };
-    }
-    const revision = await currentRevision(store, lesson);
-    if (!revision) {
-      await send(actor.chatId, "수정할 현재 revision이 아직 없어. /prompt로 초안 프롬프트를 받고, Claude 웹 결과를 /draft로 저장해줘.");
-      return { action: "manual_revise_missing_revision" };
-    }
-    await send(actor.chatId, buildRevisionPrompt({ instruction, lesson, revision }));
-    return { action: "manual_revision_prompt_sent", lessonId: lesson.id };
+    return { action: "question_answered" };
   }
 
   async function handleDraft({ update, actor, content }) {
@@ -521,7 +440,7 @@ export function createLessonCommandRouter({
         await send(actor.chatId, [
           "초안 품질 검사에서 막혔어. 저장하지 않았어.",
           `문제: ${error.details?.errors?.join(", ") ?? error.code}`,
-          "Claude 결과가 깨졌거나, H1 제목 또는 Claim ledger가 빠졌는지 확인해줘.",
+          "Markdown 결과가 깨졌거나, H1 제목 또는 Claim ledger가 빠졌는지 확인해줘.",
         ].join("\n"));
         return { action: "draft_quality_failed", errors: error.details?.errors ?? [] };
       }
@@ -530,12 +449,12 @@ export function createLessonCommandRouter({
     const nextRevision = await store.appendRevision({
       lessonId: lesson.id,
       content: requireText(content, "content"),
-      createdBy: "manual-claude-web",
-      changeSummary: "Saved manual Claude web draft from Telegram",
+      createdBy: "manual-chat-upload",
+      changeSummary: "Saved final Markdown uploaded from Telegram",
       operationKey: `telegram:manual-draft:${update.update_id}`,
     });
     await transitionAfterManualDraft(store, lesson);
-    await send(actor.chatId, `Claude 웹 결과를 revision ${nextRevision.revisionNumber}로 저장했어. /today로 확인하거나 /review로 검토 단계로 넘길 수 있어.`);
+    await send(actor.chatId, `최종 Markdown을 revision ${nextRevision.revisionNumber}로 저장했어. /today로 확인하거나 /review로 검토 단계로 넘길 수 있어.`);
     return { action: "manual_draft_saved", revisionId: nextRevision.id };
   }
 
@@ -668,7 +587,7 @@ export function createLessonCommandRouter({
       }
       if (command.command === "/draft") {
         if (!command.argument) {
-          await send(actor.chatId, "사용법: /draft Claude 웹에서 받은 Markdown 초안을 붙여넣어줘. 글이 길면 .md 파일을 첨부하고 caption에 /draft를 적어서 보내면 돼.");
+          await send(actor.chatId, "사용법: /draft 뒤에 최종 Markdown을 붙여넣어줘. 글이 길면 .md 파일을 첨부하고 caption에 /draft를 적어서 보내면 돼.");
           return { action: "draft_usage" };
         }
         return handleDraft({ update, actor, content: command.argument });
@@ -679,21 +598,6 @@ export function createLessonCommandRouter({
           return { action: "ask_api_usage" };
         }
         return handleQuestion({ update, actor, question: command.argument });
-      }
-      if (command.command === "/revise") {
-        if (!command.argument) {
-          await send(actor.chatId, "사용법: /revise 수정하고 싶은 내용을 적어줘.");
-          return { action: "revise_usage" };
-        }
-        if (mode === "api") return handleRevise({ update, actor, instruction: command.argument });
-        return handleManualRevise({ update, actor, instruction: command.argument });
-      }
-      if (command.command === "/revise-api") {
-        if (!command.argument) {
-          await send(actor.chatId, "사용법: /revise-api Claude API로 수정할 내용을 적어줘.");
-          return { action: "revise_api_usage" };
-        }
-        return handleRevise({ update, actor, instruction: command.argument });
       }
       if (command.command === "/review") return handleReview({ update, actor });
       await send(actor.chatId, "알 수 없는 명령이야. /help로 가능한 명령을 확인해줘.");

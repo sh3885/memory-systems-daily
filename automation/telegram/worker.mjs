@@ -5,7 +5,6 @@ import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import {
   createAnthropicMessagesClient,
   createClaudeAnswerProvider,
-  createClaudeRevisionProvider,
 } from "../llm/anthropic-messages-provider.mjs";
 import { createGitHubAppPublisher } from "../publishing/github-app-publisher.mjs";
 import { createGitHubContentWriter } from "../publishing/github-content-writer.mjs";
@@ -76,7 +75,6 @@ function createRuntime(env) {
   };
   if (anthropicClient) {
     routerOptions.answerProvider = createClaudeAnswerProvider({ messagesClient: anthropicClient });
-    routerOptions.revisionProvider = createClaudeRevisionProvider({ messagesClient: anthropicClient });
   }
 
   const router = createLessonCommandRouter(routerOptions);
