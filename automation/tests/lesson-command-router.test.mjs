@@ -434,6 +434,34 @@ describe("lesson command router", () => {
     assert.equal(telegram.messages.at(-1).replyMarkup.inline_keyboard[0][0].callback_data, "approve:tok123");
   });
 
+  test("treats an already-completed draft promotion as success after a concurrent upload", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const transitionLesson = store.transitionLesson.bind(store);
+    let injectedConflict = false;
+    store.transitionLesson = async (...args) => {
+      if (args[1] === "draft_ready" && !injectedConflict) {
+        injectedConflict = true;
+        await transitionLesson(...args);
+        throw new StoreError("VERSION_CONFLICT", "simulated concurrent draft promotion");
+      }
+      return transitionLesson(...args);
+    };
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({
+      update: messageUpdate(37, "/draft # Concurrent draft\n\nBody"),
+      actor,
+    });
+
+    assert.equal(result.action, "manual_draft_saved");
+    assert.equal((await store.getLesson(lesson.id)).state, "draft_ready");
+    assert.match(telegram.messages.at(-1).text, /revision 1/);
+  });
+
   test("saves an uploaded markdown document as the current draft", async () => {
     const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
     const router = createLessonCommandRouter({

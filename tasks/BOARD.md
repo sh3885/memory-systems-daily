@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-056 Diagnose current production Telegram bot error.
+  - Owner: root agent
+  - Owned paths: `automation/telegram/`, `automation/storage/`, `automation/tests/`, `tasks/active/T-056.md`, `tasks/handoffs/T-056.md`, `tasks/BOARD.md`
+  - Done when: recent production error is identified, fixed if code-caused, and the live webhook path is verified.
+
 ## Ready
 
 

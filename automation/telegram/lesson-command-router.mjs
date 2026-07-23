@@ -182,6 +182,18 @@ async function transitionAfterManualDraft(store, lesson) {
   return transitionToDiscussionIfNeeded(store, latest);
 }
 
+async function ensureDraftStateAfterManualDraft(store, lesson) {
+  try {
+    return await transitionAfterManualDraft(store, lesson);
+  } catch (error) {
+    if (!(error instanceof StoreError) || error.code !== "VERSION_CONFLICT") throw error;
+    const latest = await store.getLesson(lesson.id);
+    // Another upload may have already performed the same state promotion.
+    if (["draft_ready", "discussing", "review_ready"].includes(latest.state)) return latest;
+    return transitionAfterManualDraft(store, latest);
+  }
+}
+
 async function transitionToReviewReady(store, lesson) {
   const latest = await store.getLesson(lesson.id);
   if (!latest.currentRevisionId) {
@@ -461,7 +473,7 @@ export function createLessonCommandRouter({
       changeSummary: "Saved final Markdown uploaded from Telegram",
       operationKey: `telegram:manual-draft:${update.update_id}`,
     });
-    await transitionAfterManualDraft(store, lesson);
+    await ensureDraftStateAfterManualDraft(store, lesson);
     await send(actor.chatId, `최종 Markdown을 revision ${nextRevision.revisionNumber}로 저장했어. /today로 확인하거나 /review로 검토 단계로 넘길 수 있어.`);
     return { action: "manual_draft_saved", revisionId: nextRevision.id };
   }
