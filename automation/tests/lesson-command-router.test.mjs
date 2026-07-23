@@ -205,7 +205,10 @@ describe("lesson command router", () => {
     assert.match(prompt, /주제 축\(category\): LLM/);
     assert.match(prompt, /주제 축\(category\)을 하나만 frontmatter에 넣고/);
     assert.match(prompt, /관련 없는 memory 병목이나 시스템 설명을 억지로 넣지 않는다/);
-    assert.match(prompt, /계산, 표, 실험, 다이어그램은 설명을 더 분명하게 만들 때만 넣는다/);
+    assert.match(prompt, /공개 출처 기반으로 설명하는 한국어 기술 튜터/);
+    assert.match(prompt, /산출물 선택 기준을 통과할 때만 넣는다/);
+    assert.match(prompt, /반드시 draft\.md 파일 하나로 제공/);
+    assert.match(prompt, /다이어그램을 그리기 좋은 경우/);
     assert.match(prompt, /자주 나올 질문과 답변/);
     assert.doesNotMatch(prompt, /Markdown 계산표 1개와 inline SVG 다이어그램 1개를 반드시/);
     assert.match(prompt, /claim ledger/);

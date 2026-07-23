@@ -6,8 +6,10 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Ready
 
+
 ## Done
 
+- T-046 Improve manual Claude draft prompt and require Markdown file output, completed 2026-07-23. See `tasks/handoffs/T-046.md`.
 - T-045 Select among same-day lessons from Telegram, completed 2026-07-23. See `tasks/handoffs/T-045.md`.
 - T-044 Reset published posts and support sequential extra lessons, completed 2026-07-23. See `tasks/handoffs/T-044.md`.
 - T-043 Unify post template and add a primary blog theme, completed 2026-07-23. See `tasks/handoffs/T-043.md`.

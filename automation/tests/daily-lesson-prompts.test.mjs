@@ -13,7 +13,8 @@ describe("daily lesson prompts", () => {
     assert.equal(lesson?.title, "LLM은 무엇이고 왜 필요한가");
     assert.equal(lesson?.theme, "LLM");
     assert.equal(lesson?.postType, "Foundation Explainer");
-    assert.match(context.text, /계산, 표, 실험, 다이어그램은 설명을 더 좋게 할 때만 선택한다/);
+    assert.match(context.text, /다이어그램을 그리기 좋은 경우/);
+    assert.match(context.text, /이 산출물이 없으면 독자가 이해하지 못하는 것은 무엇인가/);
     assert.match(context.text, /주제 축\(category\): LLM/);
     assert.doesNotMatch(context.text, /필수 산출물/);
   });
