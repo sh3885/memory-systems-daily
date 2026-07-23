@@ -234,7 +234,7 @@ function nextActionFor({ lesson, revision, publication }) {
   if (!revision) return "/prompt로 Claude 웹용 초안 프롬프트를 만들고 결과를 /draft로 저장";
   if (lesson.state === "draft_ready" || lesson.state === "discussing") return "/review로 승인 버튼 생성";
   if (lesson.state === "review_ready") return "텔레그램 승인 버튼을 눌러 게시 진행";
-  if (lesson.state === "approved" || lesson.state === "publish_failed") return "/publish-retry로 GitHub 게시 재시도";
+  if (lesson.state === "approved" || lesson.state === "publishing" || lesson.state === "publish_failed") return "/publish-retry로 GitHub 게시 재시도";
   if (lesson.state === "published" || publication?.status === "published") return "오늘 포스팅 완료";
   return "/today로 초안 내용을 확인하고 필요한 질문이나 수정을 진행";
 }
@@ -521,8 +521,8 @@ export function createLessonCommandRouter({
       await send(actor.chatId, "게시를 재시도할 오늘 학습 세션이 아직 없어.");
       return { action: "publish_retry_missing_lesson" };
     }
-    if (!["approved", "publish_failed"].includes(lesson.state)) {
-      await send(actor.chatId, `현재 상태는 ${lesson.state}야. 게시 재시도는 approved 또는 publish_failed 상태에서만 가능해.`);
+    if (!["approved", "publishing", "publish_failed"].includes(lesson.state)) {
+      await send(actor.chatId, `현재 상태는 ${lesson.state}야. 게시 재시도는 approved, publishing, publish_failed 상태에서만 가능해.`);
       return { action: "publish_retry_not_ready", state: lesson.state };
     }
     if (!publicationRetry) {

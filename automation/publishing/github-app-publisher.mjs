@@ -94,6 +94,20 @@ function parseNextLink(linkHeader) {
   return match?.match(/<([^>]+)>/)?.[1] ?? null;
 }
 
+function parseJsonResponse(text, { path, status }) {
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new GitHubPublishError("GITHUB_NON_JSON_RESPONSE", `GitHub API returned non-JSON response: ${status}`, {
+      path,
+      status,
+      bodyText: text.slice(0, 500),
+      cause: error.message,
+    });
+  }
+}
+
 export function createGitHubAppPublisher({
   appId,
   privateKey,
@@ -120,12 +134,13 @@ export function createGitHubAppPublisher({
       ...options,
       headers: {
         accept: "application/vnd.github+json",
+        "user-agent": "memory-systems-daily-bot",
         "x-github-api-version": "2022-11-28",
         ...(options.headers ?? {}),
       },
     });
     const text = await response.text();
-    const body = text ? JSON.parse(text) : null;
+    const body = parseJsonResponse(text, { path, status: response.status });
     if (!response.ok) {
       throw new GitHubPublishError("GITHUB_API_ERROR", body?.message ?? `GitHub API failed: ${response.status}`, {
         path,
@@ -216,11 +231,13 @@ export function createGitHubAppPublisher({
       const response = await fetchFn(url, {
         headers: {
           accept: "application/vnd.github+json",
+          "user-agent": "memory-systems-daily-bot",
           authorization: `Bearer ${token}`,
           "x-github-api-version": "2022-11-28",
         },
       });
-      const pulls = await response.json();
+      const text = await response.text();
+      const pulls = parseJsonResponse(text, { path: new URL(url).pathname, status: response.status });
       if (!response.ok) {
         throw new GitHubPublishError("GITHUB_API_ERROR", pulls?.message ?? "Could not list pull requests", {
           status: response.status,

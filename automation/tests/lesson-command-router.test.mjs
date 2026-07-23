@@ -464,6 +464,45 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /github.test\/pr\/1/);
   });
 
+  test("allows publish retry while a previous publish start is already in progress", async () => {
+    const { lesson } = await createDraftReadyLesson();
+    await store.transitionLesson(lesson.id, "review_ready", 2);
+    const challenge = await store.issueApprovalChallenge({
+      lessonId: lesson.id,
+      telegramUserId: actor.userId,
+      telegramChatId: actor.chatId,
+      nonce: "resume-token",
+      expiresAt: "2026-07-23T00:00:00.000Z",
+      operationKey: "challenge:resume",
+    });
+    const approval = await store.consumeApprovalChallenge({
+      challengeId: challenge.id,
+      telegramUserId: actor.userId,
+      telegramChatId: actor.chatId,
+      nonce: "resume-token",
+      operationKey: "approval:resume",
+    });
+    await store.startPublishing({ lessonId: lesson.id, approvalId: approval.id });
+
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+      publicationRetry: async ({ lesson: retryLesson }) => ({
+        id: "publication_resume_1",
+        lessonId: retryLesson.id,
+        status: "published",
+        filePath: "src/pages/posts/2026-07-22-m01-w01-d1-r1.md",
+        pullRequestUrl: "https://github.test/pr/resume",
+        deploymentUrl: "https://memory-systems-daily.pages.dev/posts/2026-07-22-m01-w01-d1-r1/",
+      }),
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(42, "/publish-retry"), actor });
+    assert.equal(result.action, "publish_retry_succeeded");
+    assert.match(telegram.messages[0].text, /게시 재시도 완료/);
+  });
+
   test("keeps approval callback data short even with long challenge ids", async () => {
     await createDraftReadyLesson();
     const approvalPrompt = async () => ({ challenge: { id: "challenge_" + "x".repeat(60) }, token: "tok123" });

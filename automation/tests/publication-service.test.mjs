@@ -123,6 +123,30 @@ describe("publication rendering and service", () => {
     assert.equal((await store.getLesson(approval.lessonId)).state, "published");
   });
 
+  test("resumes publication when the lesson is already in publishing state", async () => {
+    const { approval } = await approvedLesson();
+    await store.startPublishing({ lessonId: approval.lessonId, approvalId: approval.id });
+    const service = createPublicationService({
+      store,
+      publisher: {
+        async publishPost(input) {
+          return {
+            provider: "github",
+            branch: "content/daily",
+            filePath: input.path,
+            commitSha: "commit-resumed",
+            pullRequestUrl: "https://github.test/pr/resumed",
+          };
+        },
+      },
+    });
+
+    const publication = await service.publishApprovedRevision({ approval });
+    assert.equal(publication.status, "published");
+    assert.equal(publication.commitSha, "commit-resumed");
+    assert.equal((await store.getLesson(approval.lessonId)).state, "published");
+  });
+
   test("records publish failure and surfaces a service error", async () => {
     const { approval } = await approvedLesson();
     const service = createPublicationService({
@@ -150,7 +174,7 @@ describe("GitHub App publisher", () => {
     const fetchFn = async (url, init = {}) => {
       const path = new URL(url).pathname;
       const method = init.method ?? "GET";
-      requests.push({ path, method, body: init.body ? JSON.parse(init.body) : null });
+      requests.push({ path, method, headers: init.headers ?? {}, body: init.body ? JSON.parse(init.body) : null });
       if (path === "/app/installations/42/access_tokens") return json({ token: "installation-token" });
       if (path === "/repos/acme/memory") return json({ default_branch: "main" });
       if (path === "/repos/acme/memory/git/ref/heads/content/daily") return json({ message: "Not Found" }, 404);
@@ -190,5 +214,34 @@ describe("GitHub App publisher", () => {
     assert.equal(result.commitSha, "commit-sha");
     assert.equal(result.pullRequestUrl, "https://github.test/pr/1");
     assert.equal(requests.find((request) => request.method === "PUT").body.branch, "content/daily");
+    assert.equal(requests.every((request) => request.headers["user-agent"] === "memory-systems-daily-bot"), true);
+  });
+
+  test("surfaces non-JSON GitHub API responses with status and body text", async () => {
+    const publisher = createGitHubAppPublisher({
+      appId: "1",
+      privateKey: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+      installationId: "42",
+      owner: "acme",
+      repo: "memory",
+      branch: "content/daily",
+      fetchFn: async () => new Response("Request forbidden by administrative rules", { status: 403 }),
+      jwtFactory: async () => "jwt",
+    });
+
+    await assert.rejects(
+      () => publisher.publishPost({
+        path: "src/pages/posts/post.md",
+        content: "# Post",
+        message: "Publish post",
+        title: "Publish post",
+        body: "Approved",
+      }),
+      (error) => error instanceof Error &&
+        error.name === "GitHubPublishError" &&
+        error.code === "GITHUB_NON_JSON_RESPONSE" &&
+        error.details.status === 403 &&
+        error.details.bodyText.includes("Request forbidden"),
+    );
   });
 });

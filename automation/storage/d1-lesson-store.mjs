@@ -255,6 +255,18 @@ function publicationOperationMatches(publication, expected) {
   );
 }
 
+function approvalMatchesLesson(approval, lesson, lessonId) {
+  return Boolean(
+    approval &&
+    lesson &&
+    approval.lessonId === lessonId &&
+    approval.status === "active" &&
+    approval.revisionId === lesson.currentRevisionId &&
+    approval.revisionNumber === lesson.currentRevisionNumber &&
+    approval.contentHash === lesson.currentContentHash
+  );
+}
+
 function normalizeProviderMetadata(provider) {
   if (!provider) {
     return { providerId: null, providerModel: null, providerAttemptsJson: "[]" };
@@ -899,12 +911,8 @@ export class D1LessonStore {
     const approval = await this.getApproval(approvalId);
     const timestamp = this.now();
     if (
-      !["approved", "publish_failed"].includes(lesson.state) ||
-      approval.lessonId !== lessonId ||
-      approval.status !== "active" ||
-      approval.revisionId !== lesson.currentRevisionId ||
-      approval.revisionNumber !== lesson.currentRevisionNumber ||
-      approval.contentHash !== lesson.currentContentHash
+      !["approved", "publish_failed", "publishing"].includes(lesson.state) ||
+      !approvalMatchesLesson(approval, lesson, lessonId)
     ) {
       throw new StoreError("STALE_APPROVAL", "Approval does not match the current approved lesson revision", {
         lessonId,
@@ -919,6 +927,7 @@ export class D1LessonStore {
       `).bind(timestamp, approvalId).run();
       throw new StoreError("APPROVAL_EXPIRED", "Approval expired before publishing started", { approvalId });
     }
+    if (lesson.state === "publishing") return lesson;
 
     const result = await this.db.prepare(`
       UPDATE lessons
@@ -926,6 +935,8 @@ export class D1LessonStore {
       WHERE id = ?2 AND state = ?3 AND state_version = ?4
     `).bind(timestamp, lessonId, lesson.state, lesson.stateVersion).run();
     if ((result?.meta?.changes ?? 0) !== 1) {
+      const current = await this.getLesson(lessonId);
+      if (current.state === "publishing" && approvalMatchesLesson(approval, current, lessonId)) return current;
       throw new StoreError("VERSION_CONFLICT", "Lesson changed before publishing started", { lessonId });
     }
     return this.getLesson(lessonId);

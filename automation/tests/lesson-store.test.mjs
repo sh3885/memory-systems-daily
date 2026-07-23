@@ -373,6 +373,17 @@ describe("D1 lesson store", () => {
     assert.equal(publishing.state, "publishing");
   });
 
+  test("resumes publishing idempotently when the start step already committed", async () => {
+    const { lesson } = await prepareReviewReady();
+    const { approval } = await approveLesson(lesson.id);
+    const first = await store.startPublishing({ lessonId: lesson.id, approvalId: approval.id });
+    const retry = await store.startPublishing({ lessonId: lesson.id, approvalId: approval.id });
+
+    assert.equal(first.state, "publishing");
+    assert.equal(retry.state, "publishing");
+    assert.equal(retry.stateVersion, first.stateVersion);
+  });
+
   test("retries publishing after failure only through the approval-gated method", async () => {
     const { lesson } = await prepareReviewReady();
     const { approval } = await approveLesson(lesson.id);
