@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE lessons (
   id TEXT PRIMARY KEY,
-  lesson_date TEXT NOT NULL UNIQUE,
+  lesson_date TEXT NOT NULL,
   curriculum_ref TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'scheduled' CHECK (state IN (
     'scheduled', 'researching', 'draft_ready', 'discussing', 'review_ready',
@@ -11,7 +11,8 @@ CREATE TABLE lessons (
   state_version INTEGER NOT NULL DEFAULT 0 CHECK (state_version >= 0),
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  CHECK (length(lesson_date) = 10)
+  CHECK (length(lesson_date) = 10),
+  UNIQUE (lesson_date, curriculum_ref)
 );
 
 CREATE TABLE revisions (

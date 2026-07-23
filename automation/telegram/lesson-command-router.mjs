@@ -1,4 +1,4 @@
-import { buildDailyLessonPromptContext } from "../content/daily-lesson-prompts.mjs";
+import { buildDailyLessonPromptContext, nextCurriculumRef } from "../content/daily-lesson-prompts.mjs";
 import { assertDraftContent, DraftQualityError } from "../content/draft-quality.mjs";
 import { dateInTimeZone, DEFAULT_TIME_ZONE } from "../scheduler/daily-lesson-scheduler.mjs";
 import { StoreError } from "../storage/d1-lesson-store.mjs";
@@ -15,6 +15,9 @@ export class LessonRouterError extends Error {
 const HELP_TEXT = [
   "사용 가능한 명령:",
   "/today - 오늘 lesson과 현재 초안 미리보기",
+  "/lessons - 오늘 열어 둔 lesson 목록과 현재 선택 확인",
+  "/next - 다음 커리큘럼 주제를 오늘의 추가 lesson으로 열기",
+  "/use <ref> - 오늘 열린 특정 lesson을 현재 작업 대상으로 선택",
   "/status - 글 작성, 승인, 웹 반영 상태 확인",
   "/prompt - 오늘 lesson 기반 Claude 웹용 초안 프롬프트 생성",
   "/draft <Markdown> - Claude 웹 결과를 현재 lesson의 새 revision으로 저장",
@@ -106,19 +109,18 @@ function buildDraftPrompt({ lessonDate, lesson }) {
     "",
     "작성 규칙:",
     "1. 한국어 Markdown 블로그 초안을 작성한다.",
-    "2. 용어 설명에서 끝내지 말고 system behavior와 memory traffic으로 연결한다.",
-    "3. 본문에는 Markdown 계산표 1개와 inline SVG 다이어그램 1개를 반드시 넣는다.",
+    "2. 오늘의 주제 축(category)을 하나만 frontmatter에 넣고, 다른 축은 tags로 연결한다. 오늘 권장 글 유형과 섹션을 따른다. 관련 없는 memory 병목이나 시스템 설명을 억지로 넣지 않는다.",
+    "3. 계산, 표, 실험, 다이어그램은 설명을 더 분명하게 만들 때만 넣는다.",
     "4. 확정 사실, 해석, 추정을 분리한다.",
     "5. public source 후보와 내 해석을 구분해서 쓴다.",
-    "6. 마지막에 claim ledger를 `claim | source candidate | fact/interpretation/speculation | confidence` 표로 정리한다.",
+    "6. 마지막에 자주 나올 질문과 답변을 최소 두 개 넣고, 중요한 사실은 claim ledger에 정리한다.",
     "",
     "출력 형식:",
     "# 제목",
     "## 오늘의 질문",
-    "## 핵심 개념",
-    "## 계산과 표",
-    "## 데이터 경로 또는 메모리 병목",
-    "## 다이어그램",
+    "## 먼저 답하기",
+    "## 선택한 글 유형의 핵심 섹션",
+    "## 자주 나올 질문과 답변",
     "## 확정 사실 / 해석 / 추정",
     "## Claim ledger",
     "## 다음 질문",
@@ -160,7 +162,7 @@ function buildRevisionPrompt({ instruction, lesson, revision }) {
     "아래 현재 초안을 수정 요구사항에 맞게 고쳐라.",
     "전체 Markdown 문서만 출력하고, 코드블록으로 감싸지 마라.",
     "새로운 factual claim을 추가할 때는 public source 후보를 함께 남겨라.",
-    "수정본에도 Markdown 계산표 1개와 inline SVG 다이어그램 1개가 반드시 남아 있어야 한다.",
+    "기존 계산, 표, 실험, 다이어그램은 설명에 도움이 될 때만 유지하거나 고친다. 없는 산출물을 억지로 추가하지 않는다.",
     "",
     `커리큘럼 ref: ${lesson?.curriculumRef ?? "아직 미정"}`,
     "",
@@ -359,6 +361,68 @@ export function createLessonCommandRouter({
     const { lessonDate, lesson } = await currentLesson(store, now, timeZone);
     await send(actor.chatId, buildDraftPrompt({ lessonDate, lesson }));
     return { action: "manual_prompt_sent", lessonId: lesson?.id ?? null };
+  }
+
+  async function handleNext({ actor }) {
+    const { lessonDate, lesson } = await currentLesson(store, now, timeZone);
+    const nextRef = nextCurriculumRef(lesson?.curriculumRef);
+    if (!nextRef) {
+      await send(actor.chatId, "현재 커리큘럼의 다음 주제가 없어. /today로 현재 lesson을 확인해줘.");
+      return { action: "next_unavailable" };
+    }
+    const nextLesson = await store.createLesson({ lessonDate, curriculumRef: nextRef });
+    await send(actor.chatId, [
+      "다음 학습 주제를 열었어.",
+      "커리큘럼: " + nextLesson.curriculumRef,
+      "상태: " + nextLesson.state,
+      "이제 /prompt를 보내면 이 주제의 Claude 웹용 초안을 받을 수 있어.",
+    ].join("\n"));
+    return { action: "next_lesson_created", lessonId: nextLesson.id, curriculumRef: nextLesson.curriculumRef };
+  }
+
+  async function handleLessons({ actor }) {
+    const { lessonDate, lesson } = await currentLesson(store, now, timeZone);
+    if (!store.getLessonsByDate) {
+      await send(actor.chatId, "오늘 lesson 목록 기능이 아직 Worker에 연결되지 않았어.");
+      return { action: "lessons_unavailable" };
+    }
+    const lessons = await store.getLessonsByDate(lessonDate);
+    if (!lessons.length) {
+      await send(actor.chatId, "오늘 열어 둔 lesson이 아직 없어.");
+      return { action: "lessons_empty" };
+    }
+    await send(actor.chatId, [
+      `오늘 lesson 목록: ${lessonDate}`,
+      ...lessons.map((item) => `${item.id === lesson?.id ? "현재" : "대기"} | ${item.curriculumRef} | ${item.state}`),
+      "",
+      "다른 주제로 돌아가려면 /use <커리큘럼 ref>를 보내면 돼.",
+    ].join("\n"));
+    return { action: "lessons_sent", lessonId: lesson?.id ?? null };
+  }
+
+  async function handleUse({ actor, curriculumRef }) {
+    const ref = requireText(curriculumRef, "curriculumRef");
+    if (!store.selectLessonByDateAndCurriculumRef) {
+      await send(actor.chatId, "lesson 선택 기능이 아직 Worker에 연결되지 않았어.");
+      return { action: "use_unavailable" };
+    }
+    const lessonDate = dateInTimeZone(now(), timeZone);
+    try {
+      const lesson = await store.selectLessonByDateAndCurriculumRef(lessonDate, ref);
+      await send(actor.chatId, [
+        "현재 lesson을 바꿨어.",
+        `커리큘럼: ${lesson.curriculumRef}`,
+        `상태: ${lesson.state}`,
+        "이제 /prompt, /draft, /review는 이 lesson을 대상으로 동작해.",
+      ].join("\n"));
+      return { action: "lesson_selected", lessonId: lesson.id };
+    } catch (error) {
+      if (error instanceof StoreError && error.code === "LESSON_NOT_FOUND") {
+        await send(actor.chatId, `오늘 열린 lesson 중 ${ref}를 찾지 못했어. /lessons로 목록을 확인해줘.`);
+        return { action: "lesson_not_found" };
+      }
+      throw error;
+    }
   }
 
   async function handleManualQuestion({ actor, question }) {
@@ -586,6 +650,15 @@ export function createLessonCommandRouter({
         return { action: "help_sent" };
       }
       if (command.command === "/today") return handleToday({ update, actor });
+      if (command.command === "/lessons") return handleLessons({ update, actor });
+      if (command.command === "/next") return handleNext({ update, actor });
+      if (command.command === "/use") {
+        if (!command.argument) {
+          await send(actor.chatId, "사용법: /use M01-W01-D1");
+          return { action: "use_usage" };
+        }
+        return handleUse({ actor, curriculumRef: command.argument });
+      }
       if (command.command === "/status") return handleStatus({ update, actor });
       if (command.command === "/prompt") return handlePrompt({ update, actor });
       if (command.command === "/publish-retry" || command.command === "/deploy-retry" || command.command === "/verify-url") {

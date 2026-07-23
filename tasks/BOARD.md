@@ -8,6 +8,10 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-045 Select among same-day lessons from Telegram, completed 2026-07-23. See `tasks/handoffs/T-045.md`.
+- T-044 Reset published posts and support sequential extra lessons, completed 2026-07-23. See `tasks/handoffs/T-044.md`.
+- T-043 Unify post template and add a primary blog theme, completed 2026-07-23. See `tasks/handoffs/T-043.md`.
+- T-042 Rebuild beginner-first curriculum and adaptive post guidance, completed 2026-07-23. See `tasks/handoffs/T-042.md`.
 - T-041 Admin entry password gate, completed 2026-07-23. See `tasks/handoffs/T-041.md`.
 - T-040 Blog UX and web admin publishing, completed 2026-07-23. See `tasks/handoffs/T-040.md`.
 - T-039 Fix Cloudflare account identifier in deploy workflow, completed 2026-07-23. See `tasks/handoffs/T-039.md`.

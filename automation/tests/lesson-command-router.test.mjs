@@ -116,6 +116,7 @@ describe("lesson command router", () => {
 
     assert.equal((await router.onMessage({ update: messageUpdate(1, "/help"), actor })).action, "help_sent");
     assert.match(telegram.messages[0].text, /\/today/);
+    assert.match(telegram.messages[0].text, /\/next/);
     assert.match(telegram.messages[0].text, /\/status/);
     assert.match(telegram.messages[0].text, /\/publish-retry/);
     assert.equal((await router.onMessage({ update: messageUpdate(2, "/today"), actor })).action, "today_missing");
@@ -136,6 +137,43 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /LLM attention/);
   });
 
+  test("opens the next curriculum lesson on the same date", async () => {
+    await createDraftReadyLesson("M01-W01-D1");
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(31, "/next"), actor });
+    assert.equal(result.action, "next_lesson_created");
+    assert.equal(result.curriculumRef, "M01-W01-D2");
+    assert.match(telegram.messages.at(-1).text, /M01-W01-D2/);
+
+    const lessons = await store.getLessonsByDate("2026-07-22");
+    assert.equal(lessons.length, 2);
+    assert.equal(lessons.at(-1).curriculumRef, "M01-W01-D2");
+  });
+
+  test("lists and selects a previously opened same-day lesson", async () => {
+    await createDraftReadyLesson("M01-W01-D1");
+    await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D2" });
+    store.now = () => "2026-07-22T01:00:00.000Z";
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    assert.equal((await router.onMessage({ update: messageUpdate(32, "/lessons"), actor })).action, "lessons_sent");
+    assert.match(telegram.messages.at(-1).text, /M01-W01-D1/);
+    assert.match(telegram.messages.at(-1).text, /M01-W01-D2/);
+
+    const result = await router.onMessage({ update: messageUpdate(33, "/use M01-W01-D1"), actor });
+    assert.equal(result.action, "lesson_selected");
+    assert.equal((await store.getLessonByDate("2026-07-22")).curriculumRef, "M01-W01-D1");
+  });
+
   test("reports the current lesson status", async () => {
     await createDraftReadyLesson();
     const router = createLessonCommandRouter({
@@ -152,7 +190,7 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /다음 행동: \/review/);
   });
 
-  test("includes daily artifact requirements in manual prompts", async () => {
+  test("includes beginner-first adaptive guidance in manual prompts", async () => {
     await createDraftReadyLesson("M01-W01-D1");
     const router = createLessonCommandRouter({
       store,
@@ -162,10 +200,14 @@ describe("lesson command router", () => {
 
     assert.equal((await router.onMessage({ update: messageUpdate(20, "/prompt"), actor })).action, "manual_prompt_sent");
     const prompt = telegram.messages.at(-1).text;
-    assert.match(prompt, /다음 token 예측을 데이터 경로로 보기/);
-    assert.match(prompt, /Markdown 계산표/);
-    assert.match(prompt, /inline SVG 다이어그램/);
-    assert.match(prompt, /<svg viewBox="0 0 960 420"/);
+    assert.match(prompt, /LLM은 무엇이고 왜 필요한가/);
+    assert.match(prompt, /Foundation Explainer/);
+    assert.match(prompt, /주제 축\(category\): LLM/);
+    assert.match(prompt, /주제 축\(category\)을 하나만 frontmatter에 넣고/);
+    assert.match(prompt, /관련 없는 memory 병목이나 시스템 설명을 억지로 넣지 않는다/);
+    assert.match(prompt, /계산, 표, 실험, 다이어그램은 설명을 더 분명하게 만들 때만 넣는다/);
+    assert.match(prompt, /자주 나올 질문과 답변/);
+    assert.doesNotMatch(prompt, /Markdown 계산표 1개와 inline SVG 다이어그램 1개를 반드시/);
     assert.match(prompt, /claim ledger/);
   });
 
@@ -201,7 +243,7 @@ describe("lesson command router", () => {
     assert.equal(turns[0].providerId, "anthropic");
   });
 
-  test("sends manual revision prompts with artifact requirements and saves pasted drafts", async () => {
+  test("sends manual revision prompts with adaptive guidance and saves pasted drafts", async () => {
     const { lesson } = await createDraftReadyLesson();
     const router = createLessonCommandRouter({
       store,
@@ -213,7 +255,7 @@ describe("lesson command router", () => {
     assert.match(telegram.messages.at(-1).text, /질문:/);
     assert.equal((await router.onMessage({ update: messageUpdate(22, "/revise bandwidth 관점 추가"), actor })).action, "manual_revision_prompt_sent");
     assert.match(telegram.messages.at(-1).text, /수정 요구사항:/);
-    assert.match(telegram.messages.at(-1).text, /inline SVG 다이어그램/);
+    assert.match(telegram.messages.at(-1).text, /없는 산출물을 억지로 추가하지 않는다/);
 
     const saved = await router.onMessage({
       update: messageUpdate(23, [

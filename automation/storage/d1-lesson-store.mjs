@@ -313,15 +313,7 @@ export class D1LessonStore {
       ) VALUES (?1, ?2, ?3, 'scheduled', 0, ?4, ?4)
     `).bind(id, date, curriculum, timestamp).run();
 
-    const lesson = await this.getLessonByDate(date);
-    if (lesson.curriculumRef !== curriculum) {
-      throw new StoreError("SCHEDULE_CONFLICT", "The lesson date is already assigned to another curriculum item", {
-        lessonDate: date,
-        existingCurriculumRef: lesson.curriculumRef,
-        requestedCurriculumRef: curriculum,
-      });
-    }
-    return lesson;
+    return this.getLessonByDateAndCurriculumRef(date, curriculum);
   }
 
   async getLesson(id) {
@@ -331,9 +323,33 @@ export class D1LessonStore {
   }
 
   async getLessonByDate(lessonDate) {
-    const row = await this.db.prepare(`${LESSON_SELECT} WHERE lesson.lesson_date = ?1`).bind(lessonDate).first();
+    const row = await this.db.prepare(`${LESSON_SELECT} WHERE lesson.lesson_date = ?1 ORDER BY lesson.updated_at DESC, lesson.rowid DESC LIMIT 1`).bind(lessonDate).first();
     if (!row) throw new StoreError("LESSON_NOT_FOUND", `Lesson not found for date: ${lessonDate}`, { lessonDate });
     return mapLesson(row);
+  }
+
+  async getLessonByDateAndCurriculumRef(lessonDate, curriculumRef) {
+    const row = await this.db.prepare(`${LESSON_SELECT} WHERE lesson.lesson_date = ?1 AND lesson.curriculum_ref = ?2`).bind(lessonDate, curriculumRef).first();
+    if (!row) throw new StoreError("LESSON_NOT_FOUND", "Lesson not found for date and curriculum item", { lessonDate, curriculumRef });
+    return mapLesson(row);
+  }
+
+  async getLessonsByDate(lessonDate) {
+    const rows = await allRows(this.db.prepare(`${LESSON_SELECT} WHERE lesson.lesson_date = ?1 ORDER BY lesson.rowid ASC`).bind(lessonDate));
+    return rows.map(mapLesson);
+  }
+
+  async selectLessonByDateAndCurriculumRef(lessonDate, curriculumRef) {
+    const lesson = await this.getLessonByDateAndCurriculumRef(lessonDate, curriculumRef);
+    const result = await this.db.prepare(`
+      UPDATE lessons
+      SET updated_at = ?1
+      WHERE id = ?2
+    `).bind(this.now(), lesson.id).run();
+    if ((result?.meta?.changes ?? 0) !== 1) {
+      throw new StoreError("LESSON_NOT_FOUND", "Lesson could not be selected", { lessonDate, curriculumRef });
+    }
+    return this.getLesson(lesson.id);
   }
 
   async transitionLesson(id, toState, expectedVersion) {

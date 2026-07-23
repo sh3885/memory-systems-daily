@@ -114,14 +114,13 @@ describe("D1 lesson store", () => {
     return { challenge, approval };
   }
 
-  test("creates one idempotent lesson per KST date", async () => {
+  test("creates idempotent lessons per date and curriculum item", async () => {
     const first = await store.createLesson({ lessonDate: "2026-07-23", curriculumRef: "M01-W01" });
     const duplicate = await store.createLesson({ lessonDate: "2026-07-23", curriculumRef: "M01-W01" });
     assert.equal(duplicate.id, first.id);
-    await assert.rejects(
-      () => store.createLesson({ lessonDate: "2026-07-23", curriculumRef: "M02-W01" }),
-      (error) => error instanceof StoreError && error.code === "SCHEDULE_CONFLICT",
-    );
+    const second = await store.createLesson({ lessonDate: "2026-07-23", curriculumRef: "M02-W01" });
+    assert.notEqual(second.id, first.id);
+    assert.equal((await store.getLessonsByDate("2026-07-23")).length, 2);
   });
 
   test("keeps non-sensitive database transitions aligned with the domain matrix", () => {
