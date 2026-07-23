@@ -9,6 +9,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-049 Recover approval button after review conflict, completed 2026-07-23. See `tasks/handoffs/T-049.md`.
 - T-048 Remove Telegram revision commands, completed 2026-07-23. See `tasks/handoffs/T-048.md`.
 - T-047 Make generated prompts model neutral, completed 2026-07-23. See `tasks/handoffs/T-047.md`.
 - T-046 Improve manual Claude draft prompt and require Markdown file output, completed 2026-07-23. See `tasks/handoffs/T-046.md`.

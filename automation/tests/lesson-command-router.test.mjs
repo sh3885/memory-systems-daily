@@ -7,7 +7,7 @@ import {
   createApprovalPromptService,
   createLessonCommandRouter,
 } from "../telegram/lesson-command-router.mjs";
-import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
+import { D1LessonStore, StoreError } from "../storage/d1-lesson-store.mjs";
 import { NodeD1Database } from "./node-d1-adapter.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -312,6 +312,35 @@ describe("lesson command router", () => {
     assert.equal(result.action, "review_ready_with_approval");
     assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
     assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:tok123");
+  });
+
+  test("recovers from a transient review transition version conflict and sends an approval button", async () => {
+    const { lesson } = await createDraftReadyLesson();
+    const transitionLesson = store.transitionLesson.bind(store);
+    let firstAttempt = true;
+    store.transitionLesson = async (...args) => {
+      if (firstAttempt) {
+        firstAttempt = false;
+        throw new StoreError("VERSION_CONFLICT", "simulated transient conflict");
+      }
+      return transitionLesson(...args);
+    };
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      approvalPrompt: createApprovalPromptService({
+        store,
+        now: () => "2026-07-22T00:00:00.000Z",
+        tokenFactory: () => "retrytok",
+      }),
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(60, "/review"), actor });
+
+    assert.equal(result.action, "review_ready_with_approval");
+    assert.equal((await store.getLesson(lesson.id)).state, "review_ready");
+    assert.equal(telegram.messages[0].replyMarkup.inline_keyboard[0][0].callback_data, "approve:retrytok");
   });
 
   test("invalidates older pending approval prompts when review is requested again", async () => {

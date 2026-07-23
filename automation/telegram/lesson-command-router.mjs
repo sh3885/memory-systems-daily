@@ -209,6 +209,17 @@ async function transitionToReviewReady(store, lesson) {
   });
 }
 
+async function ensureReviewReady(store, lesson) {
+  try {
+    return await transitionToReviewReady(store, lesson);
+  } catch (error) {
+    if (!(error instanceof StoreError) || error.code !== "VERSION_CONFLICT") throw error;
+    const latest = await store.getLesson(lesson.id);
+    if (latest.state === "review_ready" && latest.currentRevisionId) return latest;
+    return transitionToReviewReady(store, latest);
+  }
+}
+
 function nextActionFor({ lesson, revision, publication }) {
   if (!lesson) return "08:30 KST 스케줄러가 lesson을 만들었는지 확인하거나 /today를 다시 확인";
   if (!revision) return "/prompt로 초안 프롬프트를 만들고 최종 .md를 /draft로 저장";
@@ -489,10 +500,10 @@ export function createLessonCommandRouter({
     }
     let reviewReady;
     try {
-      reviewReady = await transitionToReviewReady(store, lesson);
+      reviewReady = await ensureReviewReady(store, lesson);
     } catch (error) {
       if (error instanceof LessonRouterError && error.code === "NO_REVISION") {
-        await send(actor.chatId, "아직 저장된 draft가 없어. 먼저 /prompt로 Claude용 프롬프트를 받고, Claude가 만든 Markdown을 /draft 뒤에 붙여넣어줘. 그 다음 /review를 누르면 승인 버튼이 나와.");
+        await send(actor.chatId, "아직 저장된 draft가 없어. 먼저 /prompt로 초안 프롬프트를 받고, 최종 Markdown을 /draft로 저장해줘. 그 다음 /review를 누르면 승인 버튼이 나와.");
         return { action: "review_missing_revision" };
       }
       if (error instanceof LessonRouterError && error.code === "NOT_REVIEWABLE") {
