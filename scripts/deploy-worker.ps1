@@ -76,6 +76,9 @@ $secretNames = @(
 )
 
 $envValues = Read-DotEnvWithPem $EnvPath
+if ($envValues.ContainsKey("GITHUB_CONTENT_BRANCH") -and $envValues["GITHUB_CONTENT_BRANCH"] -ne "main") {
+    throw "GITHUB_CONTENT_BRANCH must be main because Cloudflare Pages deploys the main branch."
+}
 $secrets = [ordered]@{}
 foreach ($name in $secretNames) {
     if ($envValues.ContainsKey($name) -and -not [string]::IsNullOrWhiteSpace([string]$envValues[$name])) {

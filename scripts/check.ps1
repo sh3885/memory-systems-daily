@@ -22,4 +22,12 @@ $env:ASTRO_TELEMETRY_DISABLED = "1"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 & $node $astro build
-exit $LASTEXITCODE
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Push-Location $root
+try {
+    & $node --test automation/tests/*.test.mjs
+    exit $LASTEXITCODE
+} finally {
+    Pop-Location
+}

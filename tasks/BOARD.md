@@ -9,6 +9,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-059 Make the complete Telegram-to-Pages publishing workflow a release gate, completed 2026-07-23. See `tasks/handoffs/T-059.md`.
 - T-058 Recover hung GitHub publishing requests in the production Telegram Worker, completed 2026-07-23. See `tasks/handoffs/T-058.md`.
 - T-057 Prevent duplicate Markdown revision creation from repeated Telegram delivery, completed 2026-07-23. See `tasks/handoffs/T-057.md`.
 - T-056 Diagnose current production Telegram bot error, completed 2026-07-23. See `tasks/handoffs/T-056.md`.
