@@ -28,7 +28,7 @@ const HELP_TEXT = [
   "/ask-api <질문> - 이번 질문만 Claude API로 답변",
   "/help 또는 /commands - 이 도움말 보기",
   "",
-  "기본 흐름: /prompt -> 채팅형 AI에서 학습·작성·수정 -> 최종 .md 업로드(/draft) -> /review -> 승인 버튼",
+  "기본 흐름: /prompt -> 채팅형 AI에서 학습·작성·수정 -> 최종 .md 파일 업로드 -> /review -> 승인 버튼",
 ].join("\n");
 
 function requireText(value, field) {
@@ -472,7 +472,7 @@ export function createLessonCommandRouter({
       return { action: "draft_document_unsupported" };
     }
     if (!isMarkdownDocument(document)) {
-      await send(actor.chatId, "초안 파일은 .md 또는 .markdown 파일로 보내줘. Telegram에서 파일 첨부 후 caption에 /draft를 적으면 돼.");
+      await send(actor.chatId, "초안 파일은 .md 또는 .markdown 파일로 보내줘. 파일만 올리면 현재 lesson의 draft로 바로 저장돼.");
       return { action: "draft_document_invalid_type" };
     }
     if (Number(document.file_size) > maxDraftFileBytes) {
@@ -563,6 +563,7 @@ export function createLessonCommandRouter({
     async onMessage({ update, actor }) {
       const text = getMessageText(update);
       const document = getMessageDocument(update);
+      if (document && isMarkdownDocument(document)) return handleDraftDocument({ update, actor, document });
       if (!text && document) return handleDraftDocument({ update, actor, document });
       if (!text) {
         await send(actor.chatId, "텍스트 메시지만 처리할 수 있어.");
@@ -595,7 +596,7 @@ export function createLessonCommandRouter({
       }
       if (command.command === "/draft") {
         if (!command.argument) {
-          await send(actor.chatId, "사용법: /draft 뒤에 최종 Markdown을 붙여넣어줘. 글이 길면 .md 파일을 첨부하고 caption에 /draft를 적어서 보내면 돼.");
+          await send(actor.chatId, "사용법: /draft 뒤에 최종 Markdown을 붙여넣어줘. 글이 길면 .md 파일만 첨부하면 자동으로 draft로 저장돼.");
           return { action: "draft_usage" };
         }
         return handleDraft({ update, actor, content: command.argument });

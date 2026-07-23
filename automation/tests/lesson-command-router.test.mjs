@@ -460,7 +460,7 @@ describe("lesson command router", () => {
     assert.match(revision.content, /File draft/);
   });
 
-  test("uses an uploaded markdown document when caption is /draft", async () => {
+  test("uses an uploaded markdown document regardless of caption", async () => {
     const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
     const router = createLessonCommandRouter({
       store,
@@ -474,7 +474,7 @@ describe("lesson command router", () => {
         file_name: "claude-draft.md",
         mime_type: "text/markdown",
         file_size: 1234,
-      }, "/draft"),
+      }, "/unrelated-command"),
       actor,
     });
 
