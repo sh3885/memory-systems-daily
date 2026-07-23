@@ -215,6 +215,9 @@ describe("lesson command router", () => {
     assert.match(prompt, /검증 과정이나 작성 메모를 별도 부록 섹션으로 만들지 않는다/);
     assert.doesNotMatch(prompt, /Claim ledger/);
     assert.match(prompt, /SVG, HTML, Mermaid, XML/);
+    assert.match(prompt, /최종 답변 전에 독자 관점에서 한 번 검토한다/);
+    assert.match(prompt, /발견한 개선점을 반영해 글 전체를 다시 다듬는다/);
+    assert.match(prompt, /검토 과정, 체크리스트, 초안은 출력하지 않는다/);
   });
 
   test("answers questions through an injected provider without changing the draft", async () => {
