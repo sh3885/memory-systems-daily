@@ -95,9 +95,8 @@ const curriculumSequence = [
 const qualityGate = [
   "독자가 실제로 궁금해할 질문 하나에 답한다.",
   "새 용어는 처음 등장할 때 쉬운 말로 짧게 정의한다.",
-  "표준, 제품, 논문, 벤치마크에 관한 중요한 사실은 public source 후보와 연결한다.",
-  "확정 사실, 개인 해석, 추정을 구분한다.",
-  "마지막에 자주 나올 질문과 답변을 최소 두 개 넣는다.",
+  "중요한 사실은 본문에서 자연스럽게 출처를 밝히고, 독자가 따라갈 수 있게 링크나 문헌명을 남긴다.",
+  "마지막에 실무자가 궁금해할 질문과 답변을 최소 두 개 넣는다.",
 ];
 
 export function findDailyLesson(curriculumRef) {
@@ -123,6 +122,7 @@ export function buildArtifactScaffold(lesson) {
     `- 권장 글 유형: ${postType}`,
     `- 도움이 될 수 있는 산출물: ${artifact}`,
     "- 산출물은 의무가 아니다. 글의 질문에 실제로 도움이 되는 것만 고른다.",
+    "- Markdown 본문에는 SVG, HTML, Mermaid 코드, XML 같은 그림 코드를 넣지 않는다. 그림이 필요하면 실제 이미지 파일이 준비된 경우에만 Markdown 이미지로 넣고, 그렇지 않으면 표나 단계별 설명으로 바꾼다.",
     "",
     "다이어그램을 그리기 좋은 경우:",
     "- 여러 단계를 순서대로 거치는 처리 흐름",
@@ -146,7 +146,7 @@ export function buildArtifactScaffold(lesson) {
     "",
     "- 먼저 '이 산출물이 없으면 독자가 이해하지 못하는 것은 무엇인가?'를 한 문장으로 답한다. 답이 없으면 넣지 않는다.",
     "- 계산을 넣는다면 가정, 단위, 식, 결과, 적용 한계를 함께 쓴다.",
-    "- 마지막에는 '자주 나올 질문과 답변'을 두 개 이상 넣는다.",
+    "- 마지막에는 '자주 묻는 질문'을 두 개 이상 넣는다.",
   ].join("\n");
 }
 
@@ -187,7 +187,7 @@ export function buildDailyLessonPromptContext({ curriculumRef }) {
       "",
       "품질 원칙:",
       markdownList(qualityGate),
-      "- 글 frontmatter의 category는 위 주제 축 하나를 그대로 사용한다. 다른 축은 tags로 연결한다.",
+      "- 주제 축과 tags는 사이트가 자동으로 붙인다. 본문에 YAML frontmatter를 쓰지 않는다.",
       "",
       buildArtifactScaffold(lesson),
     ].join("\n"),

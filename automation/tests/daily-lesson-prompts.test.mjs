@@ -24,6 +24,6 @@ describe("daily lesson prompts", () => {
 
     assert.equal(context.lesson, null);
     assert.match(context.text, /상세 lesson은 아직 자동 프롬프트 목록에 없다/);
-    assert.match(context.text, /자주 나올 질문과 답변/);
+  assert.match(context.text, /자주 묻는 질문/);
   });
 });

@@ -10,7 +10,7 @@ const routes = [
   ["system", "/system/", "CPU/GPU"],
   ["tags", "/tags/", "Tags"],
   ["admin", "/admin/", "블로그 관리"],
-  ["post", "/posts/llm-next-token/", "LLM"],
+  ["post", "/posts/2026-07-23-m01-w01-d1-r4/", "LLM"],
 ];
 const viewports = [
   ["desktop", { width: 1440, height: 1000 }],

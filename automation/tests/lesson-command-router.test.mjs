@@ -203,16 +203,18 @@ describe("lesson command router", () => {
     assert.match(prompt, /LLM은 무엇이고 왜 필요한가/);
     assert.match(prompt, /Foundation Explainer/);
     assert.match(prompt, /주제 축\(category\): LLM/);
-    assert.match(prompt, /주제 축\(category\)을 하나만 frontmatter에 넣고/);
-    assert.match(prompt, /관련 없는 memory 병목이나 시스템 설명을 억지로 넣지 않는다/);
+    assert.match(prompt, /YAML frontmatter 없이/);
+    assert.match(prompt, /오늘 권장 섹션은 자연스러운 독자용 소제목으로 풀어 쓴다/);
   assert.match(prompt, /공개 출처 기반으로 설명하는 한국어 기술 튜터/);
   assert.match(prompt, /산출물 선택 기준을 통과할 때만 넣는다/);
   assert.match(prompt, /반드시 draft\.md 파일 하나로 제공/);
   assert.match(prompt, /다이어그램을 그리기 좋은 경우/);
   assert.doesNotMatch(prompt, /Claude 웹/);
-    assert.match(prompt, /자주 나올 질문과 답변/);
+    assert.match(prompt, /자주 묻는 질문/);
     assert.doesNotMatch(prompt, /Markdown 계산표 1개와 inline SVG 다이어그램 1개를 반드시/);
-    assert.match(prompt, /claim ledger/);
+    assert.match(prompt, /검증 과정이나 작성 메모를 별도 부록 섹션으로 만들지 않는다/);
+    assert.doesNotMatch(prompt, /Claim ledger/);
+    assert.match(prompt, /SVG, HTML, Mermaid, XML/);
   });
 
   test("answers questions through an injected provider without changing the draft", async () => {

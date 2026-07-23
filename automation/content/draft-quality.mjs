@@ -7,18 +7,12 @@ export class DraftQualityError extends Error {
   }
 }
 
-const allowedCategories = new Set(["LLM", "Memory", "System", "llm", "memory", "system"]);
-
 function lines(content) {
   return String(content ?? "").replace(/\r\n?/g, "\n").split("\n");
 }
 
 function hasHeading(content) {
   return lines(content).some((line) => /^#\s+\S/.test(line));
-}
-
-function hasClaimLedger(content) {
-  return /(^|\n)#{2,3}\s*claim ledger\b/i.test(content) || /\bclaim\s*\|\s*source/i.test(content);
 }
 
 function hasLikelyMojibake(content) {
@@ -36,26 +30,19 @@ function frontmatter(content) {
   return text.slice(4, end);
 }
 
-function frontmatterValue(block, key) {
-  const match = String(block ?? "").match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?\\s*$`, "im"));
-  return match?.[1]?.trim() ?? "";
+function hasRawDiagramOrHtml(content) {
+  return /<\/?(?:svg|text|path|rect|circle|g|defs|marker)\b/i.test(content) || /```(?:svg|html|xml|mermaid)\b/i.test(content);
 }
 
-export function validateDraftContent(content, { requireClaimLedger = true } = {}) {
+export function validateDraftContent(content) {
   const text = String(content ?? "").trim();
   const errors = [];
   const warnings = [];
   if (!text) errors.push("EMPTY_DRAFT");
   if (!hasHeading(text)) errors.push("MISSING_H1");
-  if (requireClaimLedger && !hasClaimLedger(text)) errors.push("MISSING_CLAIM_LEDGER");
   if (hasLikelyMojibake(text)) errors.push("LIKELY_MOJIBAKE");
-
-  const block = frontmatter(text);
-  if (block) {
-    const category = frontmatterValue(block, "category");
-    if (category && !allowedCategories.has(category)) errors.push("INVALID_CATEGORY");
-    if (!frontmatterValue(block, "title")) warnings.push("FRONTMATTER_MISSING_TITLE");
-  }
+  if (frontmatter(text)) errors.push("FRONTMATTER_NOT_ALLOWED");
+  if (hasRawDiagramOrHtml(text)) errors.push("RAW_DIAGRAM_OR_HTML_NOT_ALLOWED");
 
   return { ok: errors.length === 0, errors, warnings };
 }

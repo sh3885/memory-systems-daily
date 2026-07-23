@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { publicationPath, renderAstroMarkdownPost, taxonomyForPost } from "../publishing/astro-post.mjs";
+import { cleanPublicMarkdown, publicationPath, renderAstroMarkdownPost, taxonomyForPost } from "../publishing/astro-post.mjs";
 import { createGitHubAppPublisher } from "../publishing/github-app-publisher.mjs";
 import { createPublicationService, PublicationServiceError } from "../publishing/publication-service.mjs";
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
@@ -86,6 +86,30 @@ describe("publication rendering and service", () => {
     assert.match(content, /category: "LLM"/);
     assert.match(content, /tags: \["LLM", "Transformer", "KV Cache", "Token"\]/);
     assert.match(content, /# LLM memory bottleneck/);
+  });
+
+  test("removes workflow metadata, raw SVG, and internal sections from public Markdown", () => {
+    const cleaned = cleanPublicMarkdown([
+      "---",
+      "title: Internal draft",
+      "---",
+      "# Public title",
+      "> curriculum ref: **M01-W01-D1**",
+      "<svg><text>diagram</text></svg>",
+      "본문 설명",
+      "## 확정 사실 / 해석 / 추정",
+      "검증 메모",
+      "## Claim ledger",
+      "내부 표",
+      "## 다음 질문",
+      "내부 다음 단계",
+      "## 자주 묻는 질문",
+      "질문과 답변",
+    ].join("\n"));
+
+    assert.match(cleaned, /# Public title/);
+    assert.match(cleaned, /## 자주 묻는 질문/);
+    assert.doesNotMatch(cleaned, /curriculum ref|<svg|<text|Claim ledger|확정 사실|다음 질문/);
   });
 
   test("classifies generated posts into blog categories", () => {

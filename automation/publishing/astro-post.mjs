@@ -2,6 +2,44 @@ function normalizeText(value) {
   return String(value ?? "").replace(/\r\n?/g, "\n").trim();
 }
 
+function stripLeadingFrontmatter(content) {
+  if (!content.startsWith("---\n")) return content;
+  const end = content.indexOf("\n---", 4);
+  return end < 0 ? content : content.slice(end + 4).replace(/^\n+/, "");
+}
+
+function stripSections(content, headings) {
+  const lines = content.split("\n");
+  const kept = [];
+  let skipping = false;
+  for (const line of lines) {
+    const heading = line.match(/^(#{1,2})\s+(.+)$/);
+    if (heading) {
+      const title = heading[2].trim();
+      if (headings.some((pattern) => pattern.test(title))) {
+        skipping = true;
+        continue;
+      }
+      if (heading[1].length <= 2) skipping = false;
+    }
+    if (!skipping) kept.push(line);
+  }
+  return kept.join("\n");
+}
+
+export function cleanPublicMarkdown(content) {
+  let text = stripLeadingFrontmatter(normalizeText(content));
+  text = text.replace(/<svg\b[\s\S]*?<\/svg>\s*/gi, "");
+  text = text.replace(/^####\s+왜 이 그림이 필요한가[\s\S]*?(?=^###\s|^##\s|$)/gim, "");
+  text = text.replace(/^>\s*(?:curriculum\s*ref|커리큘럼\s*ref|오늘\s*날짜)\s*:.*\n?/gim, "");
+  text = stripSections(text, [
+    /^확정\s*사실\s*\/\s*해석\s*\/\s*추정$/i,
+    /^claim\s+ledger$/i,
+    /^다음\s+질문$/i,
+  ]);
+  return normalizeText(text);
+}
+
 function frontmatterString(value) {
   return JSON.stringify(String(value ?? "").replace(/\r\n?/g, "\n"));
 }
@@ -94,7 +132,7 @@ export function slugFromParts(parts) {
 }
 
 export function renderAstroMarkdownPost({ lesson, revision }) {
-  const body = normalizeText(revision.content);
+  const body = cleanPublicMarkdown(revision.content);
   const title = titleFromMarkdown(body, `${lesson.lessonDate} ${lesson.curriculumRef}`);
   const description = descriptionFromMarkdown(body, `${lesson.curriculumRef} daily study note`);
   const taxonomy = taxonomyForPost({ lesson, content: body });

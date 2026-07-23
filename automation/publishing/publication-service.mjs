@@ -99,7 +99,7 @@ export function createPublicationService({
             categoryUrl: categoryUrl({ publicSiteUrl, category: taxonomy.category }),
             title: titleFromRenderedPost(content),
             path: publicPath,
-            extraMarkers: ["Claim ledger"],
+            extraMarkers: [],
             publication: result,
           },
         });
