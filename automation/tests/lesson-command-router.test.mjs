@@ -48,6 +48,16 @@ function documentUpdate(updateId, document, caption = "") {
 function captureTelegram() {
   const messages = [];
   const callbacks = [];
+  const validDraft = [
+    "# File draft",
+    "",
+    "Long Markdown body",
+    "",
+    "## Claim ledger",
+    "",
+    "claim | source candidate | fact/interpretation/speculation | confidence",
+    "Token generation reads memory | public paper | fact | high",
+  ].join("\n");
   return {
     messages,
     callbacks,
@@ -60,7 +70,7 @@ function captureTelegram() {
         callbacks.push(callback);
         return true;
       },
-      downloadDocumentText: async () => "# File draft\n\nLong Markdown body",
+      downloadDocumentText: async () => validDraft,
     },
   };
 }
@@ -205,7 +215,17 @@ describe("lesson command router", () => {
     assert.match(telegram.messages.at(-1).text, /수정 요구사항:/);
     assert.match(telegram.messages.at(-1).text, /inline SVG 다이어그램/);
 
-    const saved = await router.onMessage({ update: messageUpdate(23, "/draft # Claude 초안\n\n복사한 본문"), actor });
+    const saved = await router.onMessage({
+      update: messageUpdate(23, [
+        "/draft # Claude 초안",
+        "",
+        "복사한 본문",
+        "",
+        "## Claim ledger",
+        "claim | source candidate | fact/interpretation/speculation | confidence",
+      ].join("\n")),
+      actor,
+    });
     assert.equal(saved.action, "manual_draft_saved");
     const updated = await store.getLesson(lesson.id);
     assert.equal(updated.currentRevisionNumber, 2);
@@ -335,7 +355,17 @@ describe("lesson command router", () => {
     });
 
     assert.equal(
-      (await router.onMessage({ update: messageUpdate(33, "/draft # Manual draft\n\nBody"), actor })).action,
+      (await router.onMessage({
+        update: messageUpdate(33, [
+          "/draft # Manual draft",
+          "",
+          "Body",
+          "",
+          "## Claim ledger",
+          "claim | source candidate | fact/interpretation/speculation | confidence",
+        ].join("\n")),
+        actor,
+      })).action,
       "manual_draft_saved",
     );
     assert.equal((await store.getLesson(lesson.id)).state, "draft_ready");
@@ -416,6 +446,20 @@ describe("lesson command router", () => {
     assert.match(telegram.messages[0].text, /\.md/);
   });
 
+  test("rejects low-quality or mojibake drafts before creating a revision", async () => {
+    const lesson = await store.createLesson({ lessonDate: "2026-07-22", curriculumRef: "M01-W01-D1" });
+    const router = createLessonCommandRouter({
+      store,
+      telegram: telegram.client,
+      now: () => "2026-07-22T08:30:00+09:00",
+    });
+
+    const result = await router.onMessage({ update: messageUpdate(38, "/draft # ?ㅼ쓬 token ?덉륫\n\n본문"), actor });
+    assert.equal(result.action, "draft_quality_failed");
+    assert.equal((await store.getLesson(lesson.id)).currentRevisionNumber, 0);
+    assert.match(telegram.messages[0].text, /품질 검사/);
+  });
+
   test("retries a failed publication through an injected publisher callback", async () => {
     const { lesson } = await createDraftReadyLesson();
     await store.transitionLesson(lesson.id, "review_ready", 2);
@@ -460,7 +504,7 @@ describe("lesson command router", () => {
 
     const result = await router.onMessage({ update: messageUpdate(31, "/publish-retry"), actor });
     assert.equal(result.action, "publish_retry_succeeded");
-    assert.match(telegram.messages[0].text, /게시 재시도 완료/);
+    assert.match(telegram.messages[0].text, /웹 반영 확인 완료/);
     assert.match(telegram.messages[0].text, /github.test\/pr\/1/);
   });
 
@@ -500,7 +544,7 @@ describe("lesson command router", () => {
 
     const result = await router.onMessage({ update: messageUpdate(42, "/publish-retry"), actor });
     assert.equal(result.action, "publish_retry_succeeded");
-    assert.match(telegram.messages[0].text, /게시 재시도 완료/);
+    assert.match(telegram.messages[0].text, /웹 반영 확인 완료/);
   });
 
   test("keeps approval callback data short even with long challenge ids", async () => {

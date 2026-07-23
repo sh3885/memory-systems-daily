@@ -96,3 +96,15 @@ KST `08:30`은 UTC `23:30`(전날)이다. UTC 기반 cron에서는 `30 23 * * *`
 ## 배포 원칙
 
 초기 버전은 승인 후 별도 branch와 pull request를 생성하는 방식을 권장한다. 자동 테스트가 통과하면 merge/deploy하되, 첫 운영 기간에는 최종 merge도 사용자가 확인할 수 있게 유지한다. 안정화 후 승인 버튼이 merge와 배포까지 수행하도록 확장한다.
+
+현재 Cloudflare Pages 프로젝트는 Git provider가 연결된 자동 빌드 프로젝트가 아니라 direct upload 기반이다. 따라서 GitHub commit 또는 PR 생성만으로는 public blog가 갱신되지 않는다.
+
+`published` 상태는 반드시 다음 조건을 모두 만족한 뒤에만 기록한다.
+
+- approved revision이 GitHub에 기록됨
+- Astro build 결과가 Cloudflare Pages에 배포됨
+- production post URL이 HTTP 2xx를 반환함
+- post URL HTML에 기대 title과 `Claim ledger`가 포함됨
+- home page와 category page가 새 post URL과 title을 포함함
+
+검증 전에는 lesson을 `publish_failed` 또는 `publishing` 복구 상태에 남기고, `/publish-retry`, `/deploy-retry`, `/verify-url`로 다시 시도한다.

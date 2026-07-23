@@ -65,6 +65,15 @@ describe("publication rendering and service", () => {
     return { lesson, revision, approval };
   }
 
+  async function verifyingDeployment(input) {
+    assert.equal(input.postUrl, "https://example.com/posts/2026-07-22-m05-w12-d1-r1/");
+    assert.equal(input.homeUrl, "https://example.com");
+    assert.equal(input.categoryUrl, "https://example.com/llm/");
+    assert.equal(input.path, "/posts/2026-07-22-m05-w12-d1-r1/");
+    assert.equal(input.title, "LLM memory bottleneck");
+    return { verified: true, postUrl: input.postUrl };
+  }
+
   test("renders an Astro markdown post path and frontmatter", async () => {
     const { lesson, revision } = await approvedLesson();
     assert.equal(
@@ -102,6 +111,7 @@ describe("publication rendering and service", () => {
     const service = createPublicationService({
       store,
       publicSiteUrl: "https://example.com",
+      deploymentVerifier: verifyingDeployment,
       publisher: {
         async publishPost(input) {
           calls.push(input);
@@ -128,6 +138,8 @@ describe("publication rendering and service", () => {
     await store.startPublishing({ lessonId: approval.lessonId, approvalId: approval.id });
     const service = createPublicationService({
       store,
+      publicSiteUrl: "https://example.com",
+      deploymentVerifier: verifyingDeployment,
       publisher: {
         async publishPost(input) {
           return {
@@ -145,6 +157,33 @@ describe("publication rendering and service", () => {
     assert.equal(publication.status, "published");
     assert.equal(publication.commitSha, "commit-resumed");
     assert.equal((await store.getLesson(approval.lessonId)).state, "published");
+  });
+
+  test("does not record published when deployment verification is missing or fails", async () => {
+    const { approval } = await approvedLesson();
+    const publisher = {
+      async publishPost(input) {
+        return {
+          provider: "github",
+          branch: "content/daily",
+          filePath: input.path,
+          commitSha: "commit-unverified",
+          pullRequestUrl: "https://github.test/pr/unverified",
+        };
+      },
+    };
+    const missingVerifier = createPublicationService({
+      store,
+      publicSiteUrl: "https://example.com",
+      publisher,
+    });
+
+    await assert.rejects(
+      () => missingVerifier.publishApprovedRevision({ approval }),
+      (error) => error instanceof PublicationServiceError && error.code === "PUBLISH_FAILED",
+    );
+    assert.equal((await store.getLesson(approval.lessonId)).state, "publish_failed");
+    assert.equal(db.database.prepare("SELECT COUNT(*) AS count FROM publications WHERE status = 'published'").get().count, 0);
   });
 
   test("records publish failure and surfaces a service error", async () => {

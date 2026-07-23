@@ -1,4 +1,5 @@
 import { buildDailyLessonPromptContext } from "../content/daily-lesson-prompts.mjs";
+import { assertDraftContent, DraftQualityError } from "../content/draft-quality.mjs";
 import { dateInTimeZone, DEFAULT_TIME_ZONE } from "../scheduler/daily-lesson-scheduler.mjs";
 import { StoreError } from "../storage/d1-lesson-store.mjs";
 
@@ -14,17 +15,19 @@ export class LessonRouterError extends Error {
 const HELP_TEXT = [
   "사용 가능한 명령:",
   "/today - 오늘 lesson과 현재 초안 미리보기",
-  "/status - lesson, revision, approval, publication 상태 확인",
+  "/status - 글 작성, 승인, 웹 반영 상태 확인",
   "/prompt - 오늘 lesson 기반 Claude 웹용 초안 프롬프트 생성",
   "/draft <Markdown> - Claude 웹 결과를 현재 lesson의 새 revision으로 저장",
   "/revise <요청> - 현재 draft를 고치기 위한 Claude 웹용 수정 프롬프트 생성",
   "/review - 최신 revision을 검토 상태로 바꾸고 승인 버튼 받기",
-  "/publish-retry - GitHub 게시 실패 상태를 다시 시도",
+  "/publish-retry - GitHub 글 생성, Pages 배포 확인, 웹 반영 재시도",
+  "/deploy-retry - /publish-retry와 동일",
+  "/verify-url - /publish-retry와 동일. 실제 URL 본문 검증까지 수행",
   "/ask-api <질문> - 이번 질문만 Claude API로 답변",
   "/revise-api <요청> - 이번 수정만 Claude API로 revision 저장",
   "/help 또는 /commands - 이 도움말 보기",
   "",
-  "기본은 manual mode입니다. Claude Pro 웹을 쓰려면 /prompt, /revise, /draft, /review만 기억하면 됩니다.",
+  "기본은 manual mode야. /prompt -> Claude 웹 -> /draft -> /review -> 승인 버튼 순서로 쓰면 돼.",
 ].join("\n");
 
 function requireText(value, field) {
@@ -233,16 +236,16 @@ function nextActionFor({ lesson, revision, publication }) {
   if (!lesson) return "08:30 KST 스케줄러가 lesson을 만들었는지 확인하거나 /today를 다시 확인";
   if (!revision) return "/prompt로 Claude 웹용 초안 프롬프트를 만들고 결과를 /draft로 저장";
   if (lesson.state === "draft_ready" || lesson.state === "discussing") return "/review로 승인 버튼 생성";
-  if (lesson.state === "review_ready") return "텔레그램 승인 버튼을 눌러 게시 진행";
-  if (lesson.state === "approved" || lesson.state === "publishing" || lesson.state === "publish_failed") return "/publish-retry로 GitHub 게시 재시도";
-  if (lesson.state === "published" || publication?.status === "published") return "오늘 포스팅 완료";
+  if (lesson.state === "review_ready") return "텔레그램 승인 버튼을 눌러 웹 반영 진행";
+  if (lesson.state === "approved" || lesson.state === "publishing" || lesson.state === "publish_failed") return "/publish-retry로 글 생성, Pages 배포 확인, URL 검증 재시도";
+  if (lesson.state === "published" || publication?.status === "published") return "오늘 포스팅 완료. URL 본문 검증까지 끝난 상태";
   return "/today로 초안 내용을 확인하고 필요한 질문이나 수정을 진행";
 }
 
 function publicationLines(publication) {
   if (!publication) return ["publication: 없음"];
   return [
-    `publication: ${publication.status}`,
+    `web: ${publication.status === "published" ? "반영 완료" : "반영 실패"}`,
     publication.filePath ? `file: ${publication.filePath}` : null,
     publication.pullRequestUrl ? `PR: ${publication.pullRequestUrl}` : null,
     publication.deploymentUrl ? `URL: ${publication.deploymentUrl}` : null,
@@ -445,6 +448,19 @@ export function createLessonCommandRouter({
       await send(actor.chatId, "저장할 오늘 학습 세션이 아직 없어. 스케줄러가 lesson을 만들었는지 확인해줘.");
       return { action: "draft_missing_lesson" };
     }
+    try {
+      assertDraftContent(content);
+    } catch (error) {
+      if (error instanceof DraftQualityError) {
+        await send(actor.chatId, [
+          "초안 품질 검사에서 막혔어. 저장하지 않았어.",
+          `문제: ${error.details?.errors?.join(", ") ?? error.code}`,
+          "Claude 결과가 깨졌거나, H1 제목 또는 Claim ledger가 빠졌는지 확인해줘.",
+        ].join("\n"));
+        return { action: "draft_quality_failed", errors: error.details?.errors ?? [] };
+      }
+      throw error;
+    }
     const nextRevision = await store.appendRevision({
       lessonId: lesson.id,
       content: requireText(content, "content"),
@@ -533,7 +549,7 @@ export function createLessonCommandRouter({
     try {
       const publication = await publicationRetry({ lesson, actor });
       await send(actor.chatId, [
-        "게시 재시도 완료.",
+        "웹 반영 확인 완료.",
         `publication=${publication.id}`,
         publication.filePath ? `file=${publication.filePath}` : null,
         publication.pullRequestUrl ? `PR=${publication.pullRequestUrl}` : null,
@@ -542,9 +558,9 @@ export function createLessonCommandRouter({
       return { action: "publish_retry_succeeded", publicationId: publication.id };
     } catch (error) {
       await send(actor.chatId, [
-        "게시 재시도 실패.",
+        "웹 반영 확인 실패.",
         `error=${error?.message ?? String(error)}`,
-        "원인을 고친 뒤 /publish-retry를 다시 보내면 돼.",
+        "원인을 고친 뒤 /publish-retry 또는 /verify-url을 다시 보내면 돼.",
       ].join("\n"));
       return { action: "publish_retry_failed", error: error?.message ?? String(error) };
     }
@@ -572,7 +588,9 @@ export function createLessonCommandRouter({
       if (command.command === "/today") return handleToday({ update, actor });
       if (command.command === "/status") return handleStatus({ update, actor });
       if (command.command === "/prompt") return handlePrompt({ update, actor });
-      if (command.command === "/publish-retry") return handlePublishRetry({ update, actor });
+      if (command.command === "/publish-retry" || command.command === "/deploy-retry" || command.command === "/verify-url") {
+        return handlePublishRetry({ update, actor });
+      }
       if (command.command === "/draft") {
         if (!command.argument) {
           await send(actor.chatId, "사용법: /draft Claude 웹에서 받은 Markdown 초안을 붙여넣어줘. 글이 길면 .md 파일을 첨부하고 caption에 /draft를 적어서 보내면 돼.");

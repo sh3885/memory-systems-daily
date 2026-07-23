@@ -1,4 +1,4 @@
-import { publicationPath, publicationPermalink, renderAstroMarkdownPost } from "./astro-post.mjs";
+import { publicationPath, publicationPermalink, renderAstroMarkdownPost, taxonomyForPost } from "./astro-post.mjs";
 
 export class PublicationServiceError extends Error {
   constructor(code, message, details = {}) {
@@ -15,11 +15,44 @@ function required(value, field) {
   return normalized;
 }
 
+function titleFromRenderedPost(content) {
+  const match = String(content ?? "").match(/\ntitle:\s*"((?:\\"|[^"])*)"/);
+  if (!match) return "";
+  return match[1].replace(/\\"/g, '"');
+}
+
+function pathFromPermalink(permalink) {
+  if (!permalink) return "";
+  try {
+    return new URL(permalink).pathname;
+  } catch {
+    return "";
+  }
+}
+
+function categoryUrl({ publicSiteUrl, category }) {
+  const base = String(publicSiteUrl ?? "").trim().replace(/\/+$/g, "");
+  if (!base || !category) return "";
+  return `${base}/${String(category).toLowerCase()}/`;
+}
+
+async function requireDeploymentVerification({ deploymentVerifier, verification }) {
+  if (!deploymentVerifier) {
+    throw new PublicationServiceError(
+      "DEPLOYMENT_VERIFIER_REQUIRED",
+      "Publishing requires production URL verification before recording success",
+      { deploymentUrl: verification.postUrl },
+    );
+  }
+  return deploymentVerifier(verification);
+}
+
 export function createPublicationService({
   store,
   publisher,
   contentDirectory = "src/pages/posts",
   publicSiteUrl = "",
+  deploymentVerifier = null,
 } = {}) {
   if (!store?.startPublishing || !store?.recordPublicationSuccess || !store?.recordPublicationFailure) {
     throw new PublicationServiceError("MISCONFIGURED", "publication-capable store is required");
@@ -42,6 +75,8 @@ export function createPublicationService({
       const path = publicationPath({ lesson, revision, directory: contentDirectory });
       const content = renderAstroMarkdownPost({ lesson, revision });
       const permalink = publicationPermalink({ publicSiteUrl, lesson, revision });
+      const taxonomy = taxonomyForPost({ lesson, content: revision.content });
+      const publicPath = pathFromPermalink(permalink);
 
       try {
         const result = await publisher.publishPost({
@@ -56,6 +91,18 @@ export function createPublicationService({
             `Content hash: ${approval.contentHash}`,
           ].join("\n"),
         });
+        const deployment = await requireDeploymentVerification({
+          deploymentVerifier,
+          verification: {
+            postUrl: permalink,
+            homeUrl: String(publicSiteUrl ?? "").trim().replace(/\/+$/g, "") || null,
+            categoryUrl: categoryUrl({ publicSiteUrl, category: taxonomy.category }),
+            title: titleFromRenderedPost(content),
+            path: publicPath,
+            extraMarkers: ["Claim ledger"],
+            publication: result,
+          },
+        });
         return store.recordPublicationSuccess({
           lessonId: approval.lessonId,
           revisionId: approval.revisionId,
@@ -66,7 +113,7 @@ export function createPublicationService({
           filePath: result.filePath,
           commitSha: result.commitSha,
           pullRequestUrl: result.pullRequestUrl,
-          deploymentUrl: permalink ?? result.pullRequestUrl,
+          deploymentUrl: deployment?.postUrl ?? permalink ?? result.pullRequestUrl,
         });
       } catch (error) {
         const failure = await store.recordPublicationFailure({

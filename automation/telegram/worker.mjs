@@ -6,6 +6,7 @@ import {
   createClaudeRevisionProvider,
 } from "../llm/anthropic-messages-provider.mjs";
 import { createGitHubAppPublisher } from "../publishing/github-app-publisher.mjs";
+import { createHttpDeploymentVerifier } from "../publishing/deployment-verifier.mjs";
 import { createPublicationService } from "../publishing/publication-service.mjs";
 import { createApprovalPromptService, createLessonCommandRouter } from "./lesson-command-router.mjs";
 import { createTelegramClient } from "./telegram-client.mjs";
@@ -49,6 +50,10 @@ function createRuntime(env) {
         }),
         contentDirectory: env.GITHUB_CONTENT_DIRECTORY,
         publicSiteUrl: env.PUBLIC_SITE_URL,
+        deploymentVerifier: createHttpDeploymentVerifier({
+          attempts: Number(env.DEPLOYMENT_VERIFY_ATTEMPTS || 4),
+          delayMs: Number(env.DEPLOYMENT_VERIFY_DELAY_MS || 5000),
+        }),
       })
     : null;
 
