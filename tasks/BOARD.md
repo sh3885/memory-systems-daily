@@ -4,15 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
-- T-034 Approval-to-publish gate repair
-  - Owner: Codex root agent
-  - Owned paths: `automation/storage/d1-lesson-store.mjs`, `automation/publishing/publication-service.mjs`, `automation/publishing/github-app-publisher.mjs`, `automation/telegram/lesson-command-router.mjs`, `automation/tests/lesson-store.test.mjs`, `automation/tests/publication-service.test.mjs`, `automation/tests/lesson-command-router.test.mjs`, `tasks/BOARD.md`, `tasks/handoffs/T-034.md`
-  - Done when: production `/publish-retry` can start publishing from the recorded approval without a false "Lesson changed before publishing started" failure.
-
 ## Ready
 
 ## Done
 
+- T-034 Approval-to-publish gate repair, completed 2026-07-23. See `tasks/handoffs/T-034.md`.
 - T-033 End-to-end review approval verification, completed 2026-07-23. See `tasks/handoffs/T-033.md`.
 - T-032 Telegram markdown draft upload, completed 2026-07-23. See `tasks/handoffs/T-032.md`.
 - T-031 Telegram review missing-draft handling, completed 2026-07-23. See `tasks/handoffs/T-031.md`.
