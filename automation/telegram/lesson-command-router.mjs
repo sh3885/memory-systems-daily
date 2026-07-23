@@ -540,6 +540,7 @@ export function createLessonCommandRouter({
     }
 
     try {
+      await send(actor.chatId, "게시를 시작했어. GitHub 반영과 Pages 배포 확인을 진행 중이야. 보통 1~3분 걸리며, 완료 또는 실패 결과를 이 채팅으로 알려줄게.");
       const publication = await publicationRetry({ lesson, actor });
       await send(actor.chatId, [
         "웹 반영 확인 완료.",

@@ -24,6 +24,10 @@ function base64Encode(value) {
   return btoa(binary);
 }
 
+function normalizedBase64(value) {
+  return String(value ?? "").replace(/\s+/g, "");
+}
+
 function base64UrlEncode(value) {
   return base64Encode(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
@@ -207,8 +211,15 @@ export function createGitHubAppPublisher({
     }
   }
 
-  async function putFile(token, { path, content, message }) {
+  async function putFile(token, { path, content, message, branchSha }) {
     const existing = await existingContent(token, path);
+    const encodedContent = base64Encode(content);
+    if (existing?.content && normalizedBase64(existing.content) === encodedContent) {
+      return {
+        body: { commit: { sha: branchSha }, content: existing },
+        skipped: true,
+      };
+    }
     const { body } = await withToken(
       token,
       `/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`,
@@ -216,13 +227,13 @@ export function createGitHubAppPublisher({
         method: "PUT",
         body: JSON.stringify({
           message,
-          content: base64Encode(content),
+          content: encodedContent,
           branch: config.branch,
           ...(existing?.sha ? { sha: existing.sha } : {}),
         }),
       },
     );
-    return body;
+    return { body, skipped: false };
   }
 
   async function findOpenPullRequest(token, baseBranch) {
@@ -269,8 +280,8 @@ export function createGitHubAppPublisher({
     async publishPost({ path, content, message, title, body }) {
       const token = await installationToken();
       const baseBranch = await getDefaultBranch(token);
-      await ensureBranch(token, baseBranch);
-      const file = await putFile(token, { path, content, message });
+      const branchState = await ensureBranch(token, baseBranch);
+      const file = await putFile(token, { path, content, message, branchSha: branchState.sha });
       const directToProduction = config.branch === baseBranch;
       const pull = directToProduction
         ? { pullRequest: null, created: false }
@@ -280,11 +291,12 @@ export function createGitHubAppPublisher({
         branch: config.branch,
         baseBranch,
         filePath: path,
-        commitSha: file.commit.sha,
-        fileUrl: file.content?.html_url ?? null,
+        commitSha: file.body.commit.sha,
+        fileUrl: file.body.content?.html_url ?? null,
         pullRequestUrl: pull.pullRequest?.html_url ?? null,
         pullRequestNumber: pull.pullRequest?.number ?? null,
         createdPullRequest: pull.created,
+        skippedCommit: file.skipped,
       };
     },
   };

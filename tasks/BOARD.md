@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-055 Diagnose and harden production publishing end to end.
+  - Owner: root agent
+  - Owned paths: `automation/publishing/`, `automation/telegram/`, `automation/tests/`, `docs/`, `tasks/active/T-055.md`, `tasks/handoffs/T-055.md`, `tasks/BOARD.md`
+  - Done when: the active production publish is diagnosed, retry timing is bounded and observable, and realistic long-content publishing is exercised against the live workflow.
+
 ## Ready
 
 

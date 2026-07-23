@@ -88,6 +88,18 @@ describe("publication rendering and service", () => {
     assert.match(content, /# LLM memory bottleneck/);
   });
 
+  test("renders a realistic long draft without truncation", () => {
+    const content = `# Long post\n\n${"Memory traffic is measured before optimization.\n\n".repeat(8_000)}`;
+    const rendered = renderAstroMarkdownPost({
+      lesson: { lessonDate: "2026-07-23", curriculumRef: "M05-W12-D1" },
+      revision: { id: "revision_long", revisionNumber: 1, content },
+    });
+
+    assert.ok(content.length > 300_000);
+    assert.ok(rendered.length > content.length);
+    assert.match(rendered, /# Long post/);
+  });
+
   test("renders SVG diagrams as images while removing workflow metadata and internal sections", () => {
     const cleaned = cleanPublicMarkdown([
       "---",
@@ -320,6 +332,38 @@ describe("GitHub App publisher", () => {
     assert.equal(result.createdPullRequest, false);
     assert.equal(requests.some((request) => request.path === "/repos/acme/memory/pulls"), false);
     assert.equal(requests.find((request) => request.method === "PUT").body.branch, "main");
+  });
+
+  test("does not create a duplicate commit when the target content is unchanged", async () => {
+    const requests = [];
+    const encoded = Buffer.from("# Post").toString("base64");
+    const fetchFn = async (url, init = {}) => {
+      const path = new URL(url).pathname;
+      const method = init.method ?? "GET";
+      requests.push({ path, method });
+      if (path === "/app/installations/42/access_tokens") return json({ token: "installation-token" });
+      if (path === "/repos/acme/memory") return json({ default_branch: "main" });
+      if (path === "/repos/acme/memory/git/ref/heads/main") return json({ object: { sha: "head-sha" } });
+      if (path === "/repos/acme/memory/contents/src/pages/posts/post.md" && method === "GET") {
+        return json({ sha: "blob-sha", content: encoded, html_url: "https://github.test/file" });
+      }
+      throw new Error(`unexpected request ${method} ${path}`);
+    };
+    const publisher = createGitHubAppPublisher({
+      appId: "1",
+      privateKey: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+      installationId: "42",
+      owner: "acme",
+      repo: "memory",
+      branch: "main",
+      fetchFn,
+      jwtFactory: async () => "jwt",
+    });
+
+    const result = await publisher.publishPost({ path: "src/pages/posts/post.md", content: "# Post", message: "Publish", title: "Post", body: "" });
+    assert.equal(result.commitSha, "head-sha");
+    assert.equal(result.skippedCommit, true);
+    assert.equal(requests.some((request) => request.method === "PUT"), false);
   });
 
   test("surfaces non-JSON GitHub API responses with status and body text", async () => {

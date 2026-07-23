@@ -21,10 +21,29 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchText(fetchFn, url) {
-  const response = await fetchFn(url, {
-    headers: { "user-agent": "memory-systems-daily-verifier" },
-  });
+function cacheBustedUrl(value, attempt) {
+  const url = new URL(value);
+  url.searchParams.set("msd_verify", String(attempt));
+  return url.toString();
+}
+
+async function fetchText(fetchFn, url, { timeoutMs }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response;
+  try {
+    response = await fetchFn(url, {
+      headers: { "user-agent": "memory-systems-daily-verifier" },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new DeploymentVerificationError("HTTP_TIMEOUT", `Deployment URL timed out after ${timeoutMs}ms`, { url, timeoutMs });
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   const text = await response.text();
   if (!response.ok) {
     throw new DeploymentVerificationError("HTTP_STATUS", `Deployment URL returned HTTP ${response.status}`, {
@@ -44,9 +63,12 @@ export function createHttpDeploymentVerifier({
   fetchFn = fetch,
   attempts = 1,
   delayMs = 0,
+  fetchTimeoutMs = 8_000,
+  sleepFn = sleep,
 } = {}) {
   const normalizedAttempts = Math.max(1, Number(attempts) || 1);
   const normalizedDelayMs = Math.max(0, Number(delayMs) || 0);
+  const normalizedFetchTimeoutMs = Math.max(1, Number(fetchTimeoutMs) || 8_000);
 
   return async function verifyDeployment({
     postUrl,
@@ -63,7 +85,7 @@ export function createHttpDeploymentVerifier({
 
     for (let attempt = 1; attempt <= normalizedAttempts; attempt += 1) {
       try {
-        const postHtml = await fetchText(fetchFn, requiredPostUrl);
+        const postHtml = await fetchText(fetchFn, cacheBustedUrl(requiredPostUrl, attempt), { timeoutMs: normalizedFetchTimeoutMs });
         const missingPost = missingMarkers(postHtml, postMarkers);
         if (missingPost.length) {
           throw new DeploymentVerificationError("MISSING_POST_MARKERS", "Post page is reachable but missing expected text", {
@@ -73,7 +95,7 @@ export function createHttpDeploymentVerifier({
         }
 
         for (const url of unique([homeUrl, categoryUrl])) {
-          const html = await fetchText(fetchFn, url);
+          const html = await fetchText(fetchFn, cacheBustedUrl(url, attempt), { timeoutMs: normalizedFetchTimeoutMs });
           const missing = missingMarkers(html, listMarkers);
           if (missing.length) {
             throw new DeploymentVerificationError("MISSING_LIST_MARKERS", "Listing page is reachable but missing the post link or title", {
@@ -86,7 +108,7 @@ export function createHttpDeploymentVerifier({
         return { verified: true, postUrl: requiredPostUrl, attempts: attempt };
       } catch (error) {
         lastError = error;
-        if (attempt < normalizedAttempts && normalizedDelayMs > 0) await sleep(normalizedDelayMs);
+        if (attempt < normalizedAttempts && normalizedDelayMs > 0) await sleepFn(normalizedDelayMs);
       }
     }
 

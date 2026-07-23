@@ -562,8 +562,8 @@ describe("lesson command router", () => {
 
     const result = await router.onMessage({ update: messageUpdate(31, "/publish-retry"), actor });
     assert.equal(result.action, "publish_retry_succeeded");
-    assert.match(telegram.messages[0].text, /웹 반영 확인 완료/);
-    assert.match(telegram.messages[0].text, /github.test\/pr\/1/);
+    assert.match(telegram.messages.at(-1).text, /웹 반영 확인 완료/);
+    assert.match(telegram.messages.at(-1).text, /github.test\/pr\/1/);
   });
 
   test("allows publish retry while a previous publish start is already in progress", async () => {
@@ -602,7 +602,7 @@ describe("lesson command router", () => {
 
     const result = await router.onMessage({ update: messageUpdate(42, "/publish-retry"), actor });
     assert.equal(result.action, "publish_retry_succeeded");
-    assert.match(telegram.messages[0].text, /웹 반영 확인 완료/);
+    assert.match(telegram.messages.at(-1).text, /웹 반영 확인 완료/);
   });
 
   test("keeps approval callback data short even with long challenge ids", async () => {
