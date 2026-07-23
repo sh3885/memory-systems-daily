@@ -4,16 +4,12 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
-- T-047 Remove model-specific service wording from generated prompts.
-  - Owner: root agent
-  - Owned paths: `automation/telegram/lesson-command-router.mjs`, `automation/tests/lesson-command-router.test.mjs`, `tasks/active/T-047.md`, `tasks/handoffs/T-047.md`
-  - Done when: the copyable draft, Q&A, and revision prompts contain no service-specific launch instructions.
-
 ## Ready
 
 
 ## Done
 
+- T-047 Make generated prompts model neutral, completed 2026-07-23. See `tasks/handoffs/T-047.md`.
 - T-046 Improve manual Claude draft prompt and require Markdown file output, completed 2026-07-23. See `tasks/handoffs/T-046.md`.
 - T-045 Select among same-day lessons from Telegram, completed 2026-07-23. See `tasks/handoffs/T-045.md`.
 - T-044 Reset published posts and support sequential extra lessons, completed 2026-07-23. See `tasks/handoffs/T-044.md`.
