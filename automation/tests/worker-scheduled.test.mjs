@@ -4,12 +4,14 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import worker from "../telegram/worker.mjs";
+import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
 import { NodeD1Database } from "./node-d1-adapter.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schema = [
   readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0002_claim_ledger.sql"), "utf8"),
+  readFileSync(join(here, "../storage/migrations/0005_publications.sql"), "utf8"),
 ].join("\n");
 
 function jsonResponse(body, status = 200) {
@@ -58,6 +60,66 @@ describe("Worker scheduled lesson flow", () => {
     assert.equal(result.lessonDate, "2026-07-22");
     assert.equal(result.lesson.state, "scheduled");
     assert.match(telegramMessages[0].text, /\/prompt/);
+  });
+
+  test("continues from the most recently published curriculum item", async () => {
+    let id = 0;
+    const store = new D1LessonStore(db, {
+      now: () => "2026-07-23T01:00:00.000Z",
+      id: (prefix) => `${prefix}_${++id}`,
+    });
+    const published = await store.createLesson({ lessonDate: "2026-07-23", curriculumRef: "M01-W01-D3" });
+    const revision = await store.appendRevision({
+      lessonId: published.id,
+      content: "# D3",
+      createdBy: "writer",
+      changeSummary: "initial",
+      operationKey: "revision:d3",
+    });
+    await store.transitionLesson(published.id, "researching", 0);
+    await store.transitionLesson(published.id, "draft_ready", 1);
+    await store.transitionLesson(published.id, "review_ready", 2);
+    const challenge = await store.issueApprovalChallenge({
+      lessonId: published.id,
+      telegramUserId: "1234",
+      telegramChatId: "5678",
+      nonce: "d3-nonce",
+      expiresAt: "2026-07-24T01:00:00.000Z",
+      operationKey: "challenge:d3",
+    });
+    const approval = await store.consumeApprovalChallenge({
+      challengeId: challenge.id,
+      telegramUserId: "1234",
+      telegramChatId: "5678",
+      nonce: "d3-nonce",
+      operationKey: "approval:d3",
+    });
+    await store.startPublishing({ lessonId: published.id, approvalId: approval.id });
+    await store.recordPublicationSuccess({
+      lessonId: published.id,
+      revisionId: revision.id,
+      approvalId: approval.id,
+      operationKey: "publication:d3",
+      provider: "github",
+      branch: "main",
+      filePath: "post.md",
+      commitSha: "sha",
+      deploymentUrl: "https://example.test/d3",
+    });
+
+    const result = await worker.scheduled({
+      cron: "30 23 * * *",
+      scheduledTime: "2026-07-23T23:30:00.000Z",
+    }, {
+      DB: db,
+      TELEGRAM_BOT_TOKEN: "123:abc",
+      TELEGRAM_ALLOWED_CHAT_ID: "5678",
+      DAILY_CURRICULUM_REF: "M01-W01-D1",
+      AI_MODE: "manual",
+    });
+
+    assert.equal(result.lessonDate, "2026-07-24");
+    assert.equal(result.curriculumRef, "M01-W01-D4");
   });
 });
 

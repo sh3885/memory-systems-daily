@@ -980,6 +980,24 @@ export class D1LessonStore {
     return mapPublication(row);
   }
 
+  async getLatestPublishedLesson() {
+    const row = await this.db.prepare(`
+      ${LESSON_SELECT}
+      WHERE EXISTS (
+        SELECT 1
+        FROM publications
+        WHERE publications.lesson_id = lesson.id AND publications.status = 'published'
+      )
+      ORDER BY (
+        SELECT MAX(publications.completed_at)
+        FROM publications
+        WHERE publications.lesson_id = lesson.id AND publications.status = 'published'
+      ) DESC
+      LIMIT 1
+    `).first();
+    return mapLesson(row);
+  }
+
   async recordPublicationSuccess({
     lessonId,
     revisionId,

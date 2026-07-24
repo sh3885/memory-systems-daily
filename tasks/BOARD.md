@@ -4,6 +4,11 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
+- T-061 Continue the daily curriculum from the most recently published lesson.
+  - Owner: root agent
+  - Owned paths: `automation/scheduler/`, `automation/storage/`, `automation/telegram/`, `automation/tests/`, `tasks/active/T-061.md`, `tasks/handoffs/T-061.md`, `tasks/BOARD.md`
+  - Done when: the next scheduled lesson follows the latest published curriculum item instead of resetting to D1 on a new date.
+
 ## Ready
 
 

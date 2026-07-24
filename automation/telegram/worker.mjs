@@ -1,4 +1,5 @@
 import { createCloudflareScheduledHandler } from "../scheduler/daily-lesson-scheduler.mjs";
+import { nextCurriculumRef } from "../content/daily-lesson-prompts.mjs";
 import { createBlogApi } from "../blog/blog-api.mjs";
 import { D1BlogStore } from "../blog/blog-store.mjs";
 import { D1LessonStore } from "../storage/d1-lesson-store.mjs";
@@ -198,7 +199,10 @@ export default {
     const { store, telegram } = createRuntime(env);
     const handler = createCloudflareScheduledHandler({
       store,
-      curriculumRefForDate: async () => env.DAILY_CURRICULUM_REF,
+      curriculumRefForDate: async () => {
+        const latestPublished = await store.getLatestPublishedLesson?.();
+        return nextCurriculumRef(latestPublished?.curriculumRef) ?? env.DAILY_CURRICULUM_REF;
+      },
     });
     const result = await handler(controller);
     await telegram.sendMessage({
