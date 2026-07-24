@@ -4,16 +4,12 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## In Progress
 
-- T-061 Continue the daily curriculum from the most recently published lesson.
-  - Owner: root agent
-  - Owned paths: `automation/scheduler/`, `automation/storage/`, `automation/telegram/`, `automation/tests/`, `tasks/active/T-061.md`, `tasks/handoffs/T-061.md`, `tasks/BOARD.md`
-  - Done when: the next scheduled lesson follows the latest published curriculum item instead of resetting to D1 on a new date.
-
 ## Ready
 
 
 ## Done
 
+- T-061 Continue the daily curriculum from published progress, completed 2026-07-24. See `tasks/handoffs/T-061.md`.
 - T-060 Prevent false draft failure after completed promotion, completed 2026-07-23. See `tasks/handoffs/T-060.md`.
 - T-059 Make the complete Telegram-to-Pages publishing workflow a release gate, completed 2026-07-23. See `tasks/handoffs/T-059.md`.
 - T-058 Recover hung GitHub publishing requests in the production Telegram Worker, completed 2026-07-23. See `tasks/handoffs/T-058.md`.
