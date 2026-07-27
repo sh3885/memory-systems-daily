@@ -46,6 +46,19 @@ describe("blog API", () => {
     db.close();
   });
 
+  test("accepts the fixed admin password for the web admin API", async () => {
+    const db = new NodeD1Database(schema);
+    const store = new D1BlogStore(db, { now: () => "2026-07-23T03:00:00.000Z" });
+    const api = createBlogApi({ env: { PUBLIC_SITE_URL: "https://example.com" }, store });
+    const response = await api(request("/api/admin/posts", {
+      headers: { "x-admin-password": "tmdghks123" },
+    }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.ok, true);
+    db.close();
+  });
+
   test("publishes admin markdown through an injected GitHub publisher", async () => {
     const db = new NodeD1Database(schema);
     const store = new D1BlogStore(db, {

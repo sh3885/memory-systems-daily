@@ -33,7 +33,7 @@ function corsHeaders(request, env) {
   return {
     "access-control-allow-origin": allowOrigin || "*",
     "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
-    "access-control-allow-headers": "content-type,authorization,x-admin-token",
+    "access-control-allow-headers": "content-type,authorization,x-admin-token,x-admin-password",
     "access-control-max-age": "86400",
     "vary": "Origin",
   };
@@ -69,9 +69,14 @@ async function requireAdmin(request, env) {
   const header = request.headers.get("authorization") ?? "";
   const bearer = header.match(/^Bearer\s+(.+)$/i)?.[1] ?? "";
   const supplied = bearer || request.headers.get("x-admin-token") || "";
-  if (!(await tokenMatches(supplied, env.ADMIN_API_TOKEN))) {
-    throw new BlogApiError("UNAUTHORIZED", "Admin token is missing or invalid", 401);
-  }
+  if (await tokenMatches(supplied, env.ADMIN_API_TOKEN)) return;
+
+  // The password gate intentionally doubles as low-friction admin API auth.
+  const password = request.headers.get("x-admin-password") ?? "";
+  const expectedPassword = env.ADMIN_ENTRY_PASSWORD || "tmdghks123";
+  if (await tokenMatches(password, expectedPassword)) return;
+
+  throw new BlogApiError("UNAUTHORIZED", "Admin password or token is missing or invalid", 401);
 }
 
 function configured(value) {

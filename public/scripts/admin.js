@@ -49,9 +49,11 @@
   }
 
   function authHeaders() {
+    const password = sessionStorage.getItem("msd_admin_password") || "";
     return {
       "content-type": "application/json",
       authorization: `Bearer ${tokenInput?.value || ""}`,
+      ...(password ? { "x-admin-password": password } : {}),
     };
   }
 
@@ -170,6 +172,7 @@
       gateForm.elements.entryPassword.select();
       return;
     }
+    sessionStorage.setItem("msd_admin_password", password);
     setGateStatus("확인되었습니다.", "success");
     unlockAdmin();
   });
@@ -243,5 +246,5 @@
   if (apiBaseInput) apiBaseInput.value = storedApiBase || apiBaseInput.value || window.MSD_API_BASE || "";
 
   updatePreview();
-  if (sessionStorage.getItem("msd_admin_unlocked") === "1") unlockAdmin();
+  if (sessionStorage.getItem("msd_admin_unlocked") === "1" && sessionStorage.getItem("msd_admin_password")) unlockAdmin();
 })();
