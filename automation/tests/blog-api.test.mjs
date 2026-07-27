@@ -115,4 +115,77 @@ describe("blog API", () => {
     assert.equal(post.category, "Memory");
     assert.match(post.content, /tags: \["HBM", "Bandwidth"\]/);
   });
+
+  test("loads and updates an existing published Markdown file at the same path", async () => {
+    const db = new NodeD1Database(schema);
+    const store = new D1BlogStore(db, {
+      now: () => "2026-07-24T03:00:00.000Z",
+      id: (prefix) => `${prefix}_2`,
+    });
+    const calls = [];
+    const api = createBlogApi({
+      env: {
+        PUBLIC_SITE_URL: "https://example.com",
+        ADMIN_API_TOKEN: "secret",
+        GITHUB_APP_ID: "1",
+        GITHUB_APP_PRIVATE_KEY: "key",
+        GITHUB_INSTALLATION_ID: "2",
+        GITHUB_OWNER: "owner",
+        GITHUB_REPOSITORY: "repo",
+        GITHUB_CONTENT_BRANCH: "main",
+      },
+      store,
+      publisher: {
+        async getFile({ path }) {
+          assert.equal(path, "src/pages/posts/existing-note.md");
+          return {
+            path,
+            content: [
+              "---",
+              'title: "Existing note"',
+              'description: "Old description"',
+              'category: "Memory"',
+              'tags: ["DRAM"]',
+              "---",
+              "",
+              "# Existing note",
+              "",
+              "Old body.",
+            ].join("\n"),
+          };
+        },
+        async publishPost(input) {
+          calls.push(input);
+          return { commitSha: "updated-sha", pullRequestUrl: null };
+        },
+      },
+    });
+
+    let response = await api(request("/api/admin/posts/existing-note", {
+      headers: { authorization: "Bearer secret" },
+    }));
+    let body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.post.title, "Existing note");
+    assert.equal(body.post.markdown, "# Existing note\n\nOld body.");
+
+    response = await api(request("/api/admin/posts/existing-note", {
+      method: "PUT",
+      headers: { "content-type": "application/json", authorization: "Bearer secret" },
+      body: JSON.stringify({
+        title: "Updated note",
+        description: "New description",
+        category: "System",
+        tags: ["CXL", "Latency"],
+        markdown: "# Updated note\n\nNew body.",
+      }),
+    }));
+    body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.post.slug, "existing-note");
+    assert.equal(calls[0].path, "src/pages/posts/existing-note.md");
+    assert.match(calls[0].content, /title: "Updated note"/);
+    assert.match(calls[0].content, /# Updated note/);
+    db.close();
+  });
 });

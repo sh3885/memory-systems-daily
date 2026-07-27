@@ -10,6 +10,10 @@
   const status = document.querySelector("[data-admin-status]");
   const postsList = document.querySelector("[data-admin-list]");
   const preview = document.querySelector("[data-admin-preview]");
+  const formTitle = document.querySelector("[data-admin-form-title]");
+  const submitButton = document.querySelector("[data-admin-submit]");
+  const cancelButton = document.querySelector("[data-admin-cancel]");
+  let editingSlug = null;
 
   const apiBaseInput = connectionForm?.elements.apiBase;
   const tokenInput = connectionForm?.elements.adminToken;
@@ -82,14 +86,65 @@
       }
       for (const post of data.posts) {
         const item = document.createElement("li");
+        item.className = "admin-post-row";
+        const title = document.createElement("strong");
+        title.textContent = post.title || post.slug;
+        const detail = document.createElement("p");
+        detail.textContent = [post.category, post.slug].filter(Boolean).join(" · ");
+        const actions = document.createElement("div");
+        actions.className = "admin-row-actions";
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.addEventListener("click", () => loadPostForEditing(post.slug));
         const link = document.createElement("a");
-        link.href = post.url || "#";
-        link.textContent = `${post.title} (${post.category})`;
-        item.append(link);
+        link.href = post.url || `/posts/${post.slug}/`;
+        link.textContent = "View";
+        actions.append(edit, link);
+        item.append(title, detail, actions);
         postsList.append(item);
       }
     } catch (error) {
       postsList.innerHTML = `<li>목록 로드 실패: ${error.message}</li>`;
+    }
+  }
+
+  function resetEditor() {
+    editingSlug = null;
+    postForm?.reset();
+    if (postForm?.elements.category) postForm.elements.category.value = "LLM";
+    if (postForm?.elements.slug) postForm.elements.slug.disabled = false;
+    if (formTitle) formTitle.textContent = "New post";
+    if (submitButton) submitButton.textContent = "Publish post";
+    if (cancelButton) cancelButton.hidden = true;
+    updatePreview();
+  }
+
+  async function loadPostForEditing(slug) {
+    if (!postForm) return;
+    rememberConnection();
+    setStatus("Loading post...");
+    try {
+      const response = await fetch(apiUrl(`/api/admin/posts/${encodeURIComponent(slug)}`), { headers: authHeaders() });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+      const post = data.post;
+      editingSlug = post.slug;
+      postForm.elements.title.value = post.title || "";
+      postForm.elements.slug.value = post.slug;
+      postForm.elements.slug.disabled = true;
+      postForm.elements.description.value = post.description || "";
+      postForm.elements.category.value = post.category || "System";
+      postForm.elements.tags.value = (post.tags || []).join(", ");
+      postForm.elements.markdown.value = post.markdown || "";
+      if (formTitle) formTitle.textContent = `Edit: ${post.title}`;
+      if (submitButton) submitButton.textContent = "Update post";
+      if (cancelButton) cancelButton.hidden = false;
+      setStatus("Editing loaded post. Saving updates the existing URL.", "success");
+      updatePreview();
+      postForm.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      setStatus(`Could not load post: ${error.message}`, "error");
     }
   }
 
@@ -129,23 +184,26 @@
   postForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     rememberConnection();
-    setStatus("Publishing...");
+    setStatus(editingSlug ? "Updating post..." : "Publishing...");
     const payload = Object.fromEntries(new FormData(postForm).entries());
     payload.tags = csv(payload.tags);
     try {
-      const response = await fetch(apiUrl("/api/admin/posts"), {
-        method: "POST",
+      const response = await fetch(apiUrl(editingSlug ? `/api/admin/posts/${encodeURIComponent(editingSlug)}` : "/api/admin/posts"), {
+        method: editingSlug ? "PUT" : "POST",
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-      setStatus(`GitHub에 반영했습니다. URL: ${data.postUrl}`, "success");
+      setStatus(`${editingSlug ? "Post updated" : "Post published"}. URL: ${data.postUrl}`, "success");
+      resetEditor();
       await refreshAdminPosts();
     } catch (error) {
       setStatus(`발행 실패: ${error.message}`, "error");
     }
   });
+
+  cancelButton?.addEventListener("click", resetEditor);
 
   blogSettingsForm?.addEventListener("submit", async (event) => {
     event.preventDefault();

@@ -104,6 +104,12 @@ function createRuntime(env) {
             });
             return { ...result, pullRequestUrl: null };
           },
+          getFile(input) {
+            return adminWriter.getFile({ ...input, branch: env.GITHUB_ADMIN_BRANCH || "main" });
+          },
+          listDirectory(input) {
+            return adminWriter.listDirectory({ ...input, branch: env.GITHUB_ADMIN_BRANCH || "main" });
+          },
         }
       : null,
   });

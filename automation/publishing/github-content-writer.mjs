@@ -164,7 +164,37 @@ export function createGitHubContentWriter({
     }
   }
 
+  function decodeContent(content) {
+    const normalized = String(content ?? "").replace(/\n/g, "");
+    if (typeof Buffer !== "undefined") return Buffer.from(normalized, "base64").toString("utf8");
+    const binary = atob(normalized);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
   return {
+    async getFile({ path, branch = config.branch }) {
+      const targetBranch = required(branch, "branch");
+      const token = await installationToken();
+      const file = await existingContent(token, required(path, "path"), targetBranch);
+      if (!file || Array.isArray(file) || file.type !== "file") return null;
+      return {
+        path: file.path,
+        sha: file.sha,
+        content: decodeContent(file.content),
+        branch: targetBranch,
+      };
+    },
+
+    async listDirectory({ path, branch = config.branch }) {
+      const targetBranch = required(branch, "branch");
+      const token = await installationToken();
+      const encoded = encodeURIComponent(required(path, "path")).replace(/%2F/g, "/");
+      const { body } = await withToken(token, `/repos/${config.owner}/${config.repo}/contents/${encoded}?ref=${encodeURIComponent(targetBranch)}`);
+      if (!Array.isArray(body)) throw new GitHubPublishError("GITHUB_INVALID_DIRECTORY", `${path} is not a directory`, { path });
+      return body.map((entry) => ({ path: entry.path, name: entry.name, type: entry.type, sha: entry.sha }));
+    },
+
     async putFile({ path, content, message, branch = config.branch }) {
       const targetBranch = required(branch, "branch");
       const token = await installationToken();

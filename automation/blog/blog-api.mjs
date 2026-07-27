@@ -1,4 +1,4 @@
-import { renderAdminMarkdownPost } from "../publishing/admin-post.mjs";
+import { parseAdminMarkdownPost, renderAdminMarkdownPost } from "../publishing/admin-post.mjs";
 
 export class BlogApiError extends Error {
   constructor(code, message, status = 400, details = {}) {
@@ -32,7 +32,7 @@ function corsHeaders(request, env) {
   const allowOrigin = allowed.has(origin) || isLocalDev ? origin : publicSite || "*";
   return {
     "access-control-allow-origin": allowOrigin || "*",
-    "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
     "access-control-allow-headers": "content-type,authorization,x-admin-token",
     "access-control-max-age": "86400",
     "vary": "Origin",
@@ -103,6 +103,18 @@ function publicPostUrl(env, path) {
 function normalizeList(value) {
   const source = Array.isArray(value) ? value : String(value ?? "").split(",");
   return source.map((entry) => String(entry).trim()).filter(Boolean);
+}
+
+function postSlug(value) {
+  const slug = String(value ?? "").trim();
+  if (!/^[a-z0-9][a-z0-9-]{0,119}$/i.test(slug)) {
+    throw new BlogApiError("INVALID_POST_SLUG", "Post slug is invalid", 400);
+  }
+  return slug;
+}
+
+function postPath(slug) {
+  return `src/pages/posts/${postSlug(slug)}.md`;
 }
 
 function renderBlogSettings(input = {}) {
@@ -187,7 +199,25 @@ export function createBlogApi({ env, store, publisher = null } = {}) {
 
       if (url.pathname === "/api/admin/posts" && request.method === "GET") {
         await requireAdmin(request, env);
-        return json({ ok: true, posts: await store.listAdminPosts() }, 200, headers);
+        const savedPosts = await store.listAdminPosts();
+        if (!publisher?.listDirectory) return json({ ok: true, posts: savedPosts }, 200, headers);
+        const files = await publisher.listDirectory({ path: "src/pages/posts" });
+        const savedBySlug = new Map(savedPosts.map((post) => [post.slug, post]));
+        const posts = files
+          .filter((file) => file.type === "file" && String(file.path ?? file.name ?? "").endsWith(".md"))
+          .map((file) => {
+            const slug = String(file.name ?? file.path.split("/").pop()).replace(/\.md$/, "");
+            return savedBySlug.get(slug) ?? {
+              id: null,
+              slug,
+              title: slug,
+              category: "",
+              url: `/posts/${slug}/`,
+              filePath: file.path,
+              source: "published",
+            };
+          });
+        return json({ ok: true, posts }, 200, headers);
       }
 
       if (url.pathname === "/api/admin/posts" && request.method === "POST") {
@@ -246,11 +276,50 @@ export function createBlogApi({ env, store, publisher = null } = {}) {
         return json({ ok: true, publication: result }, 200, headers);
       }
 
-      const patchMatch = url.pathname.match(/^\/api\/admin\/posts\/([^/]+)$/);
-      if (patchMatch && request.method === "PATCH") {
+      const postRoutePrefix = "/api/admin/posts/";
+      const postRouteSlug = url.pathname.startsWith(postRoutePrefix)
+        ? url.pathname.slice(postRoutePrefix.length)
+        : "";
+      if (postRouteSlug && !postRouteSlug.includes("/") && request.method === "GET") {
+        await requireAdmin(request, env);
+        if (!publisher?.getFile || !githubPublishingConfigured(env)) {
+          throw new BlogApiError("PUBLISHING_NOT_CONFIGURED", "GitHub publishing is not configured", 503);
+        }
+        const slug = postSlug(decodeURIComponent(postRouteSlug));
+        const file = await publisher.getFile({ path: postPath(slug) });
+        if (!file) throw new BlogApiError("POST_NOT_FOUND", "Post was not found", 404);
+        return json({ ok: true, post: { ...parseAdminMarkdownPost(file.content, { slug }), filePath: file.path } }, 200, headers);
+      }
+
+      if (postRouteSlug && !postRouteSlug.includes("/") && request.method === "PUT") {
+        await requireAdmin(request, env);
+        if (!publisher || !githubPublishingConfigured(env)) {
+          throw new BlogApiError("PUBLISHING_NOT_CONFIGURED", "GitHub publishing is not configured", 503);
+        }
+        const slug = postSlug(decodeURIComponent(postRouteSlug));
+        const body = await readJson(request);
+        const existing = publisher.getFile ? await publisher.getFile({ path: postPath(slug) }) : null;
+        if (publisher.getFile && !existing) throw new BlogApiError("POST_NOT_FOUND", "Post was not found", 404);
+        const post = renderAdminMarkdownPost({ ...body, slug });
+        const result = await publisher.publishPost({
+          path: post.filePath,
+          content: post.content,
+          message: `Admin update ${post.title}`,
+          title: `Admin update ${post.title}`,
+          body: `Updated from /admin web publishing.\nURL: ${post.url}`,
+        });
+        const saved = await store.upsertAdminPost({
+          slug: post.slug, title: post.title, description: post.description, category: post.category,
+          tags: post.tags, url: post.url, status: "published", filePath: post.filePath,
+          commitSha: result.commitSha, pullRequestUrl: result.pullRequestUrl,
+        });
+        return json({ ok: true, post: saved, publication: result, postUrl: publicPostUrl(env, post.url) }, 200, headers);
+      }
+
+      if (postRouteSlug && !postRouteSlug.includes("/") && request.method === "PATCH") {
         await requireAdmin(request, env);
         const body = await readJson(request);
-        return json({ ok: true, post: await store.updateAdminPost(decodeURIComponent(patchMatch[1]), body) }, 200, headers);
+        return json({ ok: true, post: await store.updateAdminPost(decodeURIComponent(postRouteSlug), body) }, 200, headers);
       }
 
       return json({ ok: false, error: "NOT_FOUND" }, 404, headers);

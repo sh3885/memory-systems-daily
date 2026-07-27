@@ -56,7 +56,7 @@ const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-
 
       <div class="admin-compose">
         <section class="admin-panel">
-          <h2><PenTool size={17} /> New post</h2>
+          <h2 data-admin-form-title><PenTool size={17} /> New post</h2>
           <form data-admin-form class="admin-form">
             <div class="form-row">
               <label>
@@ -90,7 +90,10 @@ const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-
               <span>Markdown</span>
               <textarea name="markdown" required rows="18" placeholder="# 제목&#10;&#10;본문을 Markdown으로 작성하세요."></textarea>
             </label>
-            <button type="submit"><Send size={16} />발행 요청</button>
+            <div class="admin-form-actions">
+              <button type="submit" data-admin-submit><Send size={16} />Publish post</button>
+              <button type="button" class="secondary" data-admin-cancel hidden>Cancel edit</button>
+            </div>
           </form>
         </section>
 

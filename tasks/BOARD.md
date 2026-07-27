@@ -9,6 +9,7 @@ Only one owner may hold a task. Parallel write tasks must have disjoint `Owned p
 
 ## Done
 
+- T-062 Add editing for published blog posts in the web admin, completed 2026-07-27. See `tasks/handoffs/T-062.md`.
 - T-061 Continue the daily curriculum from published progress, completed 2026-07-24. See `tasks/handoffs/T-061.md`.
 - T-060 Prevent false draft failure after completed promotion, completed 2026-07-23. See `tasks/handoffs/T-060.md`.
 - T-059 Make the complete Telegram-to-Pages publishing workflow a release gate, completed 2026-07-23. See `tasks/handoffs/T-059.md`.

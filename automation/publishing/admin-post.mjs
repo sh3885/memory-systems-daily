@@ -93,3 +93,35 @@ export function renderAdminMarkdownPost(input = {}) {
     filePath: `src/pages/posts/${slug}.md`,
   };
 }
+
+function frontmatterValues(content) {
+  const match = String(content ?? "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) return { values: {}, markdown: String(content ?? "") };
+  const values = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const field = line.match(/^([A-Za-z][A-Za-z0-9_]*):\s*(.*)$/);
+    if (!field) continue;
+    const [, key, raw] = field;
+    try {
+      values[key] = JSON.parse(raw);
+    } catch {
+      values[key] = raw.trim();
+    }
+  }
+  return { values, markdown: String(content).slice(match[0].length).trim() };
+}
+
+export function parseAdminMarkdownPost(content, { slug = "" } = {}) {
+  const { values, markdown } = frontmatterValues(content);
+  const title = cleanText(values.title, titleFromMarkdown(markdown, slug || "Untitled"));
+  return {
+    slug: slugify(slug || title),
+    title,
+    description: cleanText(values.description, descriptionFromMarkdown(markdown, title)),
+    category: normalizeAdminCategory(values.category),
+    tags: normalizeAdminTags(values.tags),
+    lessonDate: cleanText(values.lessonDate, ""),
+    minutes: Number.isFinite(Number(values.minutes)) ? Number(values.minutes) : null,
+    markdown,
+  };
+}

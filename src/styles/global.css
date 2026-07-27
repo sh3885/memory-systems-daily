@@ -682,6 +682,18 @@ nav a.active {
   color: var(--muted);
 }
 
+.admin-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-form button.secondary {
+  border-color: var(--line);
+  background: white;
+  color: var(--muted);
+}
+
 .helper-text,
 .admin-status-panel p {
   margin: 0;
@@ -737,6 +749,18 @@ nav a.active {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+.admin-row-actions a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--memory);
+  font-size: 0.84rem;
+  font-weight: 780;
 }
 
 footer {
