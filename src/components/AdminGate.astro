@@ -1,0 +1,19 @@
+---
+import { LockKeyhole } from "@lucide/astro";
+---
+
+<section class="admin-gate" data-admin-gate>
+  <div class="admin-gate-card">
+    <LockKeyhole size={28} />
+    <h2>관리자 입장</h2>
+    <p>비밀번호를 입력하면 관리 화면이 열립니다.</p>
+    <form data-admin-password-form class="admin-form compact-form">
+      <label>
+        <span>Password</span>
+        <input name="entryPassword" type="password" autocomplete="current-password" />
+      </label>
+      <button type="submit">입장</button>
+      <p class="status-line" data-admin-gate-status role="status"></p>
+    </form>
+  </div>
+</section>

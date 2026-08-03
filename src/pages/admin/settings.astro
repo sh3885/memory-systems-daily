@@ -1,0 +1,71 @@
+---
+import { ArrowLeft, KeyRound, SlidersHorizontal } from "@lucide/astro";
+import AdminGate from "../../components/AdminGate.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import blogSettings from "../../data/blog-settings.json";
+
+const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-daily-bot.sh3885-lee.workers.dev";
+---
+
+<BaseLayout title="설정 | Memory Systems Daily" description="블로그 설정 관리">
+  <section class="shell admin-shell">
+    <AdminGate />
+
+    <div data-admin-content hidden>
+      <header class="admin-head">
+        <div class="admin-head-text">
+          <a class="back-link" href="/admin/"><ArrowLeft size={15} />글 관리로 돌아가기</a>
+          <h1>설정</h1>
+        </div>
+      </header>
+
+      <p class="status-line admin-status" data-admin-status role="status"></p>
+
+      <div class="settings-layout">
+        <section class="admin-panel">
+          <h2><SlidersHorizontal size={17} /> 블로그 정보</h2>
+          <p class="helper-text">저장하면 GitHub의 설정 파일이 갱신되고 다음 배포에 반영됩니다.</p>
+          <form data-blog-settings class="admin-form">
+            <label>
+              <span>블로그 제목</span>
+              <input name="blogTitle" value={blogSettings.blogTitle} />
+            </label>
+            <label>
+              <span>블로그 설명</span>
+              <textarea name="description" rows="4">{blogSettings.description}</textarea>
+            </label>
+            <label>
+              <span>카테고리 순서 <em>쉼표로 구분</em></span>
+              <input name="categoryOrder" value={blogSettings.categoryOrder.join(", ")} />
+            </label>
+            <label>
+              <span>대표 태그 <em>쉼표로 구분</em></span>
+              <input name="featuredTags" value={blogSettings.featuredTags.join(", ")} />
+            </label>
+            <div class="admin-form-actions">
+              <button type="submit">설정 저장</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="admin-panel">
+          <h2><KeyRound size={17} /> 연결</h2>
+          <p class="helper-text">Worker 주소를 바꿀 때만 사용합니다. 평소에는 그대로 두세요.</p>
+          <form data-admin-connection class="admin-form">
+            <label>
+              <span>Worker API URL</span>
+              <input name="apiBase" type="url" value={apiBase} placeholder="https://...workers.dev" />
+            </label>
+            <div class="admin-form-actions">
+              <button type="submit">주소 저장</button>
+              <button type="button" class="btn ghost" data-connection-reset>기본값으로</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <script is:inline src="/scripts/admin-core.js" defer></script>
+  <script is:inline src="/scripts/admin-settings.js" defer></script>
+</BaseLayout>

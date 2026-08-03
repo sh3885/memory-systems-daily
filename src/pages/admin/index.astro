@@ -1,0 +1,83 @@
+---
+import { CalendarDays, ExternalLink, FileText, Pencil, Plus, Settings, Trash2 } from "@lucide/astro";
+import AdminGate from "../../components/AdminGate.astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { orderedBlogCategories, posts } from "../../data/blog";
+
+const categoryCounts = orderedBlogCategories.map((category) => ({
+  ...category,
+  count: posts.filter((post) => post.category === category.id).length,
+}));
+---
+
+<BaseLayout title="글 관리 | Memory Systems Daily" description="블로그 글 관리 화면">
+  <section class="shell admin-shell">
+    <AdminGate />
+
+    <div data-admin-content hidden>
+      <header class="admin-head">
+        <div class="admin-head-text">
+          <p class="kicker">Admin</p>
+          <h1>글 관리</h1>
+          <p class="admin-head-sub">게시된 글을 확인하고 수정하거나 삭제합니다.</p>
+        </div>
+        <div class="admin-head-actions">
+          <a class="btn ghost" href="/admin/settings/"><Settings size={16} />설정</a>
+          <a class="btn primary" href="/admin/new/"><Plus size={16} />새 글 쓰기</a>
+        </div>
+      </header>
+
+      <div class="admin-stats">
+        <div class="admin-stat">
+          <strong>{posts.length}</strong>
+          <span>전체 글</span>
+        </div>
+        {categoryCounts.map((category) => (
+          <div class="admin-stat">
+            <strong>{category.count}</strong>
+            <span>{category.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <p class="status-line admin-status" data-admin-status role="status"></p>
+
+      {posts.length > 0 ? (
+        <ul class="admin-posts">
+          {posts.map((post) => (
+            <li class="admin-post" data-post-slug={post.slug} data-post-title={post.title}>
+              <div class="admin-post-body">
+                <div class="admin-post-meta">
+                  <span class:list={["pill", post.category]}>{post.categoryLabel}</span>
+                  {post.lessonDate && (
+                    <span class="meta-text"><CalendarDays size={13} />{post.lessonDate}</span>
+                  )}
+                </div>
+                <h2><a href={post.url}>{post.title}</a></h2>
+                {post.description && post.description !== post.title && <p>{post.description}</p>}
+              </div>
+              <div class="admin-post-actions">
+                <a class="btn" href={`/admin/edit/${post.slug}/`}><Pencil size={14} />수정</a>
+                <a class="btn ghost" href={post.url}><ExternalLink size={14} />보기</a>
+                <button class="btn danger" type="button" data-post-delete><Trash2 size={14} />삭제</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div class="admin-empty">
+          <FileText size={30} />
+          <p>아직 게시된 글이 없습니다.</p>
+          <a class="btn primary" href="/admin/new/"><Plus size={16} />첫 글 쓰기</a>
+        </div>
+      )}
+
+      <p class="helper-text admin-foot-note">
+        목록은 배포된 사이트 기준입니다. 텔레그램이나 이 화면에서 글을 올리면 다음 배포 후 목록에 반영됩니다.
+      </p>
+    </div>
+  </section>
+
+  <script is:inline src="/scripts/admin-core.js" defer></script>
+  <script is:inline src="/scripts/admin-list.js" defer></script>
+</BaseLayout>

@@ -1,0 +1,27 @@
+---
+import AdminEditor from "../../../components/AdminEditor.astro";
+import AdminGate from "../../../components/AdminGate.astro";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { posts } from "../../../data/blog";
+
+export function getStaticPaths() {
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+---
+
+<BaseLayout title={`수정: ${post.title} | Memory Systems Daily`} description="블로그 글 수정">
+  <section class="shell admin-shell">
+    <AdminGate />
+    <div data-admin-content hidden>
+      <AdminEditor mode="edit" slug={post.slug} heading={post.title} postUrl={post.url} />
+    </div>
+  </section>
+
+  <script is:inline src="/scripts/admin-core.js" defer></script>
+  <script is:inline src="/scripts/admin-editor.js" defer></script>
+</BaseLayout>
