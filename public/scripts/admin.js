@@ -16,7 +16,6 @@
   let editingSlug = null;
 
   const apiBaseInput = connectionForm?.elements.apiBase;
-  const tokenInput = connectionForm?.elements.adminToken;
 
   function csv(value) {
     return String(value || "")
@@ -48,17 +47,19 @@
     return `${base}${path}`;
   }
 
+  function adminPassword() {
+    return sessionStorage.getItem("msd_admin_password") || "";
+  }
+
   function authHeaders() {
-    const password = sessionStorage.getItem("msd_admin_password") || "";
+    const password = adminPassword();
     return {
       "content-type": "application/json",
-      authorization: `Bearer ${tokenInput?.value || ""}`,
       ...(password ? { "x-admin-password": password } : {}),
     };
   }
 
   function rememberConnection() {
-    if (tokenInput?.value) localStorage.setItem("msd_admin_token", tokenInput.value);
     if (apiBaseInput?.value) localStorage.setItem("msd_api_base", normalizeApiBase(apiBaseInput.value));
   }
 
@@ -76,14 +77,19 @@
   }
 
   async function refreshAdminPosts() {
-    if (!postsList || !tokenInput?.value || !apiBaseInput?.value) return;
+    if (!postsList) return;
+    if (!adminPassword() || !apiBaseInput?.value) {
+      postsList.innerHTML = "<li>관리자 비밀번호로 입장하면 목록을 불러옵니다.</li>";
+      return;
+    }
+    postsList.innerHTML = "<li>목록을 불러오는 중...</li>";
     try {
       const response = await fetch(apiUrl("/api/admin/posts"), { headers: authHeaders() });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
       postsList.innerHTML = "";
       if (!data.posts.length) {
-        postsList.innerHTML = "<li>아직 admin에서 만든 글이 없습니다.</li>";
+        postsList.innerHTML = "<li>아직 게시된 글이 없습니다.</li>";
         return;
       }
       for (const post of data.posts) {
@@ -92,7 +98,9 @@
         const title = document.createElement("strong");
         title.textContent = post.title || post.slug;
         const detail = document.createElement("p");
-        detail.textContent = [post.category, post.slug].filter(Boolean).join(" · ");
+        detail.textContent = [post.category, post.title && post.title !== post.slug ? post.slug : ""]
+          .filter(Boolean)
+          .join(" · ");
         const actions = document.createElement("div");
         actions.className = "admin-row-actions";
         const edit = document.createElement("button");
@@ -102,12 +110,36 @@
         const link = document.createElement("a");
         link.href = post.url || `/posts/${post.slug}/`;
         link.textContent = "View";
-        actions.append(edit, link);
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "danger";
+        remove.textContent = "Delete";
+        remove.addEventListener("click", () => deletePost(post.slug, post.title));
+        actions.append(edit, link, remove);
         item.append(title, detail, actions);
         postsList.append(item);
       }
     } catch (error) {
       postsList.innerHTML = `<li>목록 로드 실패: ${error.message}</li>`;
+    }
+  }
+
+  async function deletePost(slug, title) {
+    if (!window.confirm(`정말 "${title || slug}" 글을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    rememberConnection();
+    setStatus("Deleting post...");
+    try {
+      const response = await fetch(apiUrl(`/api/admin/posts/${encodeURIComponent(slug)}`), {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
+      setStatus(`글을 삭제했습니다: ${slug}`, "success");
+      if (editingSlug === slug) resetEditor();
+      await refreshAdminPosts();
+    } catch (error) {
+      setStatus(`삭제 실패: ${error.message}`, "error");
     }
   }
 
@@ -234,15 +266,12 @@
   });
 
   postForm?.addEventListener("input", updatePreview);
-  apiBaseInput?.addEventListener("change", rememberConnection);
-  tokenInput?.addEventListener("change", () => {
+  apiBaseInput?.addEventListener("change", () => {
     rememberConnection();
     refreshAdminPosts();
   });
 
-  const storedToken = localStorage.getItem("msd_admin_token");
   const storedApiBase = localStorage.getItem("msd_api_base");
-  if (storedToken && tokenInput) tokenInput.value = storedToken;
   if (apiBaseInput) apiBaseInput.value = storedApiBase || apiBaseInput.value || window.MSD_API_BASE || "";
 
   updatePreview();

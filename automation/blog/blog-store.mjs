@@ -245,4 +245,9 @@ export class D1BlogStore {
     const row = await this.db.prepare("SELECT * FROM blog_admin_posts WHERE id = ?1").bind(postId).first();
     return mapAdminPost(row);
   }
+
+  async deleteAdminPostBySlug(slug) {
+    const normalizedSlug = requireText(slug, "slug");
+    await this.db.prepare("DELETE FROM blog_admin_posts WHERE slug = ?1").bind(normalizedSlug).run();
+  }
 }

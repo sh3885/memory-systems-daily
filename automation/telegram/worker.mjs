@@ -110,6 +110,9 @@ function createRuntime(env) {
           listDirectory(input) {
             return adminWriter.listDirectory({ ...input, branch: env.GITHUB_ADMIN_BRANCH || "main" });
           },
+          deleteFile(input) {
+            return adminWriter.deleteFile({ ...input, branch: env.GITHUB_ADMIN_BRANCH || "main" });
+          },
         }
       : null,
   });

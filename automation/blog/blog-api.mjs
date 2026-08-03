@@ -32,7 +32,7 @@ function corsHeaders(request, env) {
   const allowOrigin = allowed.has(origin) || isLocalDev ? origin : publicSite || "*";
   return {
     "access-control-allow-origin": allowOrigin || "*",
-    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers": "content-type,authorization,x-admin-token,x-admin-password",
     "access-control-max-age": "86400",
     "vary": "Origin",
@@ -325,6 +325,20 @@ export function createBlogApi({ env, store, publisher = null } = {}) {
         await requireAdmin(request, env);
         const body = await readJson(request);
         return json({ ok: true, post: await store.updateAdminPost(decodeURIComponent(postRouteSlug), body) }, 200, headers);
+      }
+
+      if (postRouteSlug && !postRouteSlug.includes("/") && request.method === "DELETE") {
+        await requireAdmin(request, env);
+        if (!publisher?.deleteFile || !githubPublishingConfigured(env)) {
+          throw new BlogApiError("PUBLISHING_NOT_CONFIGURED", "GitHub publishing is not configured", 503);
+        }
+        const slug = postSlug(decodeURIComponent(postRouteSlug));
+        const path = postPath(slug);
+        const existing = publisher.getFile ? await publisher.getFile({ path }) : null;
+        if (publisher.getFile && !existing) throw new BlogApiError("POST_NOT_FOUND", "Post was not found", 404);
+        await publisher.deleteFile({ path, message: `Admin delete ${slug}` });
+        if (store.deleteAdminPostBySlug) await store.deleteAdminPostBySlug(slug);
+        return json({ ok: true, slug, deleted: true }, 200, headers);
       }
 
       return json({ ok: false, error: "NOT_FOUND" }, 404, headers);

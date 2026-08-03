@@ -220,5 +220,25 @@ export function createGitHubContentWriter({
         fileUrl: body.content?.html_url ?? null,
       };
     },
+
+    async deleteFile({ path, message, branch = config.branch }) {
+      const targetBranch = required(branch, "branch");
+      const token = await installationToken();
+      const existing = await existingContent(token, required(path, "path"), targetBranch);
+      if (!existing || Array.isArray(existing)) return { deleted: false };
+      await withToken(
+        token,
+        `/repos/${config.owner}/${config.repo}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`,
+        {
+          method: "DELETE",
+          body: JSON.stringify({
+            message: required(message, "message"),
+            sha: existing.sha,
+            branch: targetBranch,
+          }),
+        },
+      );
+      return { deleted: true, provider: "github", branch: targetBranch, filePath: path };
+    },
   };
 }

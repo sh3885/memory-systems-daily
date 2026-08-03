@@ -201,4 +201,89 @@ describe("blog API", () => {
     assert.match(calls[0].content, /# Updated note/);
     db.close();
   });
+
+  test("deletes an admin post through the injected GitHub publisher and store", async () => {
+    const db = new NodeD1Database(schema);
+    const store = new D1BlogStore(db, {
+      now: () => "2026-07-25T03:00:00.000Z",
+      id: (prefix) => `${prefix}_3`,
+    });
+    await store.upsertAdminPost({
+      slug: "old-note",
+      title: "Old note",
+      description: "desc",
+      category: "System",
+      tags: ["Latency"],
+      url: "/posts/old-note/",
+      status: "published",
+      filePath: "src/pages/posts/old-note.md",
+    });
+
+    const deleteCalls = [];
+    const api = createBlogApi({
+      env: {
+        PUBLIC_SITE_URL: "https://example.com",
+        ADMIN_API_TOKEN: "secret",
+        GITHUB_APP_ID: "1",
+        GITHUB_APP_PRIVATE_KEY: "key",
+        GITHUB_INSTALLATION_ID: "2",
+        GITHUB_OWNER: "owner",
+        GITHUB_REPOSITORY: "repo",
+        GITHUB_CONTENT_BRANCH: "main",
+      },
+      store,
+      publisher: {
+        async getFile({ path }) {
+          assert.equal(path, "src/pages/posts/old-note.md");
+          return { path, content: "---\ntitle: \"Old note\"\n---\n\n# Old note\n" };
+        },
+        async deleteFile(input) {
+          deleteCalls.push(input);
+          return { deleted: true };
+        },
+      },
+    });
+
+    const response = await api(request("/api/admin/posts/old-note", {
+      method: "DELETE",
+      headers: { authorization: "Bearer secret" },
+    }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.ok, true);
+    assert.equal(body.slug, "old-note");
+    assert.equal(deleteCalls[0].path, "src/pages/posts/old-note.md");
+    assert.equal((await store.listAdminPosts()).length, 0);
+    db.close();
+  });
+
+  test("returns 404 when deleting a post that does not exist", async () => {
+    const db = new NodeD1Database(schema);
+    const store = new D1BlogStore(db, { now: () => "2026-07-25T03:00:00.000Z" });
+    const api = createBlogApi({
+      env: {
+        PUBLIC_SITE_URL: "https://example.com",
+        ADMIN_API_TOKEN: "secret",
+        GITHUB_APP_ID: "1",
+        GITHUB_APP_PRIVATE_KEY: "key",
+        GITHUB_INSTALLATION_ID: "2",
+        GITHUB_OWNER: "owner",
+        GITHUB_REPOSITORY: "repo",
+        GITHUB_CONTENT_BRANCH: "main",
+      },
+      store,
+      publisher: {
+        async getFile() { return null; },
+        async deleteFile() { throw new Error("should not be called"); },
+      },
+    });
+    const response = await api(request("/api/admin/posts/missing-note", {
+      method: "DELETE",
+      headers: { authorization: "Bearer secret" },
+    }));
+    const body = await response.json();
+    assert.equal(response.status, 404);
+    assert.equal(body.error, "POST_NOT_FOUND");
+    db.close();
+  });
 });

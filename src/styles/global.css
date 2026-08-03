@@ -682,6 +682,16 @@ nav a.active {
   color: var(--muted);
 }
 
+.admin-row-actions button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.admin-row-actions button.danger:hover {
+  background: var(--danger);
+  color: white;
+}
+
 .admin-form-actions {
   display: flex;
   flex-wrap: wrap;
