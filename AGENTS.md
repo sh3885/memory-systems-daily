@@ -82,10 +82,23 @@ Run before handoff:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\check.ps1
 ```
 
-For visual changes, also run:
+This runs Astro diagnostics, the production build, the automation tests, and
+then loads **every page in `dist/`** through a real browser. A page fails the
+check when it returns a non-2xx status, logs a console error, requests a
+missing resource, renders an empty body, has no `h1`, scrolls horizontally,
+has a broken image, or contains a broken link target. Never claim the site
+works without this page check passing.
+
+The page check serves the built output on its own preview server, so it needs
+no dev server. To point it somewhere else, set `VISUAL_BASE_URL`. To also
+verify content behind the admin gate, set `VISUAL_ADMIN_PASSWORD`:
 
 ```powershell
+$env:VISUAL_ADMIN_PASSWORD = "<admin password>"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\visual-check.ps1
 ```
+
+`SKIP_VISUAL_CHECK=1` skips it inside `check.ps1`. Use that only when a
+browser is unavailable, and say so in the handoff.
 
 Report any validation that could not run and why.

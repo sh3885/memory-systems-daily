@@ -27,6 +27,15 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Push-Location $root
 try {
     & $node --test automation/tests/*.test.mjs
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    if ($env:SKIP_VISUAL_CHECK -eq "1") {
+        Write-Host "Skipping the page check because SKIP_VISUAL_CHECK=1."
+        exit 0
+    }
+
+    # Every built page must load: status, console errors, layout, links, images.
+    & $node scripts/visual-check.mjs
     exit $LASTEXITCODE
 } finally {
     Pop-Location
