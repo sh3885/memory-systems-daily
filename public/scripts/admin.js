@@ -73,58 +73,20 @@
     sessionStorage.setItem("msd_admin_unlocked", "1");
     if (gate) gate.hidden = true;
     if (adminContent) adminContent.hidden = false;
-    refreshAdminPosts();
   }
 
-  async function refreshAdminPosts() {
+  // Rows are rendered at build time from the same frontmatter the public blog uses,
+  // so this only wires the actions onto them.
+  function bindPostRows() {
     if (!postsList) return;
-    if (!adminPassword() || !apiBaseInput?.value) {
-      postsList.innerHTML = "<li>관리자 비밀번호로 입장하면 목록을 불러옵니다.</li>";
-      return;
-    }
-    postsList.innerHTML = "<li>목록을 불러오는 중...</li>";
-    try {
-      const response = await fetch(apiUrl("/api/admin/posts"), { headers: authHeaders() });
-      const data = await response.json();
-      if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-      postsList.innerHTML = "";
-      if (!data.posts.length) {
-        postsList.innerHTML = "<li>아직 게시된 글이 없습니다.</li>";
-        return;
-      }
-      for (const post of data.posts) {
-        const item = document.createElement("li");
-        item.className = "admin-post-row";
-        const title = document.createElement("strong");
-        title.textContent = post.title || post.slug;
-        const detail = document.createElement("p");
-        detail.textContent = [post.category, post.title && post.title !== post.slug ? post.slug : ""]
-          .filter(Boolean)
-          .join(" · ");
-        const actions = document.createElement("div");
-        actions.className = "admin-row-actions";
-        const edit = document.createElement("button");
-        edit.type = "button";
-        edit.textContent = "Edit";
-        edit.addEventListener("click", () => loadPostForEditing(post.slug));
-        const link = document.createElement("a");
-        link.href = post.url || `/posts/${post.slug}/`;
-        link.textContent = "View";
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "danger";
-        remove.textContent = "Delete";
-        remove.addEventListener("click", () => deletePost(post.slug, post.title));
-        actions.append(edit, link, remove);
-        item.append(title, detail, actions);
-        postsList.append(item);
-      }
-    } catch (error) {
-      postsList.innerHTML = `<li>목록 로드 실패: ${error.message}</li>`;
+    for (const row of postsList.querySelectorAll("[data-post-slug]")) {
+      const { postSlug, postTitle } = row.dataset;
+      row.querySelector("[data-post-edit]")?.addEventListener("click", () => loadPostForEditing(postSlug));
+      row.querySelector("[data-post-delete]")?.addEventListener("click", () => deletePost(postSlug, postTitle, row));
     }
   }
 
-  async function deletePost(slug, title) {
+  async function deletePost(slug, title, row) {
     if (!window.confirm(`정말 "${title || slug}" 글을 삭제할까요? 되돌릴 수 없습니다.`)) return;
     rememberConnection();
     setStatus("Deleting post...");
@@ -135,9 +97,9 @@
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-      setStatus(`글을 삭제했습니다: ${slug}`, "success");
+      row?.remove();
       if (editingSlug === slug) resetEditor();
-      await refreshAdminPosts();
+      setStatus(`"${title || slug}" 글을 삭제했습니다. 공개 사이트는 다음 배포에 반영됩니다.`, "success");
     } catch (error) {
       setStatus(`삭제 실패: ${error.message}`, "error");
     }
@@ -213,7 +175,6 @@
     event.preventDefault();
     rememberConnection();
     setStatus("연결 설정을 브라우저에 저장했습니다.", "success");
-    refreshAdminPosts();
   });
 
   postForm?.addEventListener("submit", async (event) => {
@@ -230,9 +191,8 @@
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-      setStatus(`${editingSlug ? "Post updated" : "Post published"}. URL: ${data.postUrl}`, "success");
+      setStatus(`${editingSlug ? "글을 수정했습니다" : "글을 발행했습니다"}. 목록은 다음 배포에 반영됩니다. URL: ${data.postUrl}`, "success");
       resetEditor();
-      await refreshAdminPosts();
     } catch (error) {
       setStatus(`발행 실패: ${error.message}`, "error");
     }
@@ -266,14 +226,12 @@
   });
 
   postForm?.addEventListener("input", updatePreview);
-  apiBaseInput?.addEventListener("change", () => {
-    rememberConnection();
-    refreshAdminPosts();
-  });
+  apiBaseInput?.addEventListener("change", rememberConnection);
 
   const storedApiBase = localStorage.getItem("msd_api_base");
   if (apiBaseInput) apiBaseInput.value = storedApiBase || apiBaseInput.value || window.MSD_API_BASE || "";
 
   updatePreview();
+  bindPostRows();
   if (sessionStorage.getItem("msd_admin_unlocked") === "1" && sessionStorage.getItem("msd_admin_password")) unlockAdmin();
 })();

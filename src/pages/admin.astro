@@ -1,6 +1,7 @@
 ---
-import { KeyRound, ListTree, LockKeyhole, PenTool, Send } from "@lucide/astro";
+import { CalendarDays, KeyRound, ListTree, LockKeyhole, PenTool, Send } from "@lucide/astro";
 import blogSettings from "../data/blog-settings.json";
+import { posts } from "../data/blog";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-daily-bot.sh3885-lee.workers.dev";
@@ -121,10 +122,23 @@ const apiBase = import.meta.env.PUBLIC_BLOG_API_BASE ?? "https://memory-systems-
             </form>
           </section>
           <section class="admin-panel">
-            <h2><ListTree size={17} /> 게시글 목록</h2>
-            <p class="helper-text">Edit은 글을 아래 편집기로 불러오고, Delete는 GitHub에서 글 파일을 삭제합니다.</p>
+            <h2><ListTree size={17} /> 게시글 목록 ({posts.length})</h2>
+            <p class="helper-text">Edit은 글을 왼쪽 편집기로 불러오고, Delete는 GitHub에서 글 파일을 삭제합니다.</p>
             <ul class="admin-post-list" data-admin-list>
-              <li>관리자 비밀번호로 입장하면 목록을 불러옵니다.</li>
+              {posts.length > 0 ? posts.map((post) => (
+                <li class="admin-post-row" data-post-slug={post.slug} data-post-title={post.title}>
+                  <strong>{post.title}</strong>
+                  <p class="admin-post-meta">
+                    <span class:list={["pill", post.category]}>{post.categoryLabel}</span>
+                    {post.lessonDate && <span class="meta-text"><CalendarDays size={13} />{post.lessonDate}</span>}
+                  </p>
+                  <div class="admin-row-actions">
+                    <button type="button" data-post-edit>Edit</button>
+                    <a href={post.url}>View</a>
+                    <button type="button" class="danger" data-post-delete>Delete</button>
+                  </div>
+                </li>
+              )) : <li>아직 게시된 글이 없습니다.</li>}
             </ul>
           </section>
         </aside>
