@@ -142,7 +142,7 @@ function renderBlogSettings(input = {}) {
   return `${JSON.stringify(settings, null, 2)}\n`;
 }
 
-export function createBlogApi({ env, store, publisher = null } = {}) {
+export function createBlogApi({ env, store, publisher = null, lessonStore = null } = {}) {
   if (!store?.recordVisit || !store?.listAdminPosts) {
     throw new BlogApiError("MISCONFIGURED", "blog store is required", 500);
   }
@@ -338,7 +338,11 @@ export function createBlogApi({ env, store, publisher = null } = {}) {
         if (publisher.getFile && !existing) throw new BlogApiError("POST_NOT_FOUND", "Post was not found", 404);
         await publisher.deleteFile({ path, message: `Admin delete ${slug}` });
         if (store.deleteAdminPostBySlug) await store.deleteAdminPostBySlug(slug);
-        return json({ ok: true, slug, deleted: true }, 200, headers);
+        // Retract the publication so daily scheduling rewinds to this lesson.
+        const retraction = lessonStore?.retractPublicationsByFilePath
+          ? await lessonStore.retractPublicationsByFilePath(path, "post_deleted")
+          : { retracted: 0 };
+        return json({ ok: true, slug, deleted: true, retracted: retraction.retracted }, 200, headers);
       }
 
       return json({ ok: false, error: "NOT_FOUND" }, 404, headers);

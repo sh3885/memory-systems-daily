@@ -981,21 +981,51 @@ export class D1LessonStore {
   }
 
   async getLatestPublishedLesson() {
+    // A retracted publication no longer exists on the site, so curriculum
+    // scheduling must not treat its lesson as the latest published one.
     const row = await this.db.prepare(`
       ${LESSON_SELECT}
       WHERE EXISTS (
         SELECT 1
         FROM publications
-        WHERE publications.lesson_id = lesson.id AND publications.status = 'published'
+        WHERE publications.lesson_id = lesson.id
+          AND publications.status = 'published'
+          AND NOT EXISTS (
+            SELECT 1 FROM publication_retractions
+            WHERE publication_retractions.publication_id = publications.id
+          )
       )
       ORDER BY (
         SELECT MAX(publications.completed_at)
         FROM publications
-        WHERE publications.lesson_id = lesson.id AND publications.status = 'published'
+        WHERE publications.lesson_id = lesson.id
+          AND publications.status = 'published'
+          AND NOT EXISTS (
+            SELECT 1 FROM publication_retractions
+            WHERE publication_retractions.publication_id = publications.id
+          )
       ) DESC
       LIMIT 1
     `).first();
     return mapLesson(row);
+  }
+
+  async retractPublicationsByFilePath(filePath, reason = "post_deleted") {
+    const path = requireText(filePath, "filePath");
+    const rows = await this.db.prepare(`
+      SELECT id, lesson_id FROM publications
+      WHERE file_path = ?1 AND status = 'published'
+    `).bind(path).all();
+    const publications = rows?.results ?? [];
+    if (!publications.length) return { retracted: 0 };
+
+    const timestamp = this.now();
+    await this.db.batch(publications.map((publication) => this.db.prepare(`
+      INSERT INTO publication_retractions (publication_id, lesson_id, file_path, reason, created_at)
+      VALUES (?1, ?2, ?3, ?4, ?5)
+      ON CONFLICT(publication_id) DO NOTHING
+    `).bind(publication.id, publication.lesson_id, path, requireText(reason, "reason"), timestamp)));
+    return { retracted: publications.length };
   }
 
   async recordPublicationSuccess({

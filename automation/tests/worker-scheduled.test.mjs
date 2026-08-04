@@ -12,6 +12,7 @@ const schema = [
   readFileSync(join(here, "../storage/migrations/0001_lesson_store.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0002_claim_ledger.sql"), "utf8"),
   readFileSync(join(here, "../storage/migrations/0005_publications.sql"), "utf8"),
+  readFileSync(join(here, "../storage/migrations/0007_publication_retractions.sql"), "utf8"),
 ].join("\n");
 
 function jsonResponse(body, status = 200) {
@@ -120,6 +121,77 @@ describe("Worker scheduled lesson flow", () => {
 
     assert.equal(result.lessonDate, "2026-07-24");
     assert.equal(result.curriculumRef, "M01-W01-D4");
+  });
+
+  test("reschedules a retracted lesson instead of advancing past it", async () => {
+    let id = 0;
+    const store = new D1LessonStore(db, {
+      now: () => "2026-07-23T01:00:00.000Z",
+      id: (prefix) => `${prefix}_${++id}`,
+    });
+
+    async function publish(ref, suffix, filePath) {
+      const lesson = await store.createLesson({ lessonDate: `2026-07-2${suffix}`, curriculumRef: ref });
+      const revision = await store.appendRevision({
+        lessonId: lesson.id,
+        content: `# ${ref}`,
+        createdBy: "writer",
+        changeSummary: "initial",
+        operationKey: `revision:${ref}`,
+      });
+      await store.transitionLesson(lesson.id, "researching", 0);
+      await store.transitionLesson(lesson.id, "draft_ready", 1);
+      await store.transitionLesson(lesson.id, "review_ready", 2);
+      const challenge = await store.issueApprovalChallenge({
+        lessonId: lesson.id,
+        telegramUserId: "1234",
+        telegramChatId: "5678",
+        nonce: `${ref}-nonce`,
+        expiresAt: "2026-07-30T01:00:00.000Z",
+        operationKey: `challenge:${ref}`,
+      });
+      const approval = await store.consumeApprovalChallenge({
+        challengeId: challenge.id,
+        telegramUserId: "1234",
+        telegramChatId: "5678",
+        nonce: `${ref}-nonce`,
+        operationKey: `approval:${ref}`,
+      });
+      await store.startPublishing({ lessonId: lesson.id, approvalId: approval.id });
+      await store.recordPublicationSuccess({
+        lessonId: lesson.id,
+        revisionId: revision.id,
+        approvalId: approval.id,
+        operationKey: `publication:${ref}`,
+        provider: "github",
+        branch: "main",
+        filePath,
+        commitSha: `sha-${ref}`,
+        deploymentUrl: `https://example.test/${ref}`,
+      });
+    }
+
+    await publish("M01-W01-D7", "3", "src/pages/posts/d7.md");
+    await publish("M01-W02-D1", "4", "src/pages/posts/w02-d1.md");
+
+    // The W02-D1 post was published, then removed from the site.
+    const retraction = await store.retractPublicationsByFilePath("src/pages/posts/w02-d1.md");
+    assert.equal(retraction.retracted, 1);
+
+    const env = {
+      DB: db,
+      TELEGRAM_BOT_TOKEN: "123:abc",
+      TELEGRAM_ALLOWED_CHAT_ID: "5678",
+      DAILY_CURRICULUM_REF: "M01-W01-D1",
+      AI_MODE: "manual",
+    };
+    const result = await worker.scheduled({
+      cron: "30 23 * * *",
+      scheduledTime: "2026-07-25T23:30:00.000Z",
+    }, env);
+
+    // Without the retraction this would advance to M01-W02-D2 and skip the topic.
+    assert.equal(result.curriculumRef, "M01-W02-D1");
   });
 });
 

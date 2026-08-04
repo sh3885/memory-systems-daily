@@ -257,6 +257,48 @@ describe("blog API", () => {
     db.close();
   });
 
+  test("retracts the publication so scheduling rewinds to the deleted lesson", async () => {
+    const db = new NodeD1Database(schema);
+    const store = new D1BlogStore(db, { now: () => "2026-08-04T03:00:00.000Z" });
+    const retractions = [];
+    const api = createBlogApi({
+      env: {
+        PUBLIC_SITE_URL: "https://example.com",
+        ADMIN_API_TOKEN: "secret",
+        GITHUB_APP_ID: "1",
+        GITHUB_APP_PRIVATE_KEY: "key",
+        GITHUB_INSTALLATION_ID: "2",
+        GITHUB_OWNER: "owner",
+        GITHUB_REPOSITORY: "repo",
+        GITHUB_CONTENT_BRANCH: "main",
+      },
+      store,
+      lessonStore: {
+        async retractPublicationsByFilePath(filePath, reason) {
+          retractions.push({ filePath, reason });
+          return { retracted: 1 };
+        },
+      },
+      publisher: {
+        async getFile({ path }) { return { path, content: "# Wrong topic\n" }; },
+        async deleteFile() { return { deleted: true }; },
+      },
+    });
+
+    const response = await api(request("/api/admin/posts/2026-07-31-m01-w02-d1-r1", {
+      method: "DELETE",
+      headers: { authorization: "Bearer secret" },
+    }));
+    const body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.retracted, 1);
+    assert.deepEqual(retractions, [{
+      filePath: "src/pages/posts/2026-07-31-m01-w02-d1-r1.md",
+      reason: "post_deleted",
+    }]);
+    db.close();
+  });
+
   test("returns 404 when deleting a post that does not exist", async () => {
     const db = new NodeD1Database(schema);
     const store = new D1BlogStore(db, { now: () => "2026-07-25T03:00:00.000Z" });

@@ -93,6 +93,7 @@ function createRuntime(env) {
   const blogApi = createBlogApi({
     env,
     store: blogStore,
+    lessonStore: store,
     publisher: adminWriter
       ? {
           async publishPost(input) {
