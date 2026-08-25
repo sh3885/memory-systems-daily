@@ -3,8 +3,8 @@ layout: ../../layouts/PostLayout.astro
 title: "Nand Flash 펌웨어 3 (오프라인 교육)"
 description: "파일 시스템은 NAND를 얼마나 배려해야 하는가: FAT에서 출발하기"
 lessonDate: "2026-08-25"
-category: "LLM"
-tags: []
+category: "Memory"
+tags: ["Nand", "Memory", "FW"]
 source: admin
 ---
 
