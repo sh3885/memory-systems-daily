@@ -49,9 +49,25 @@ function renderSvgDiagrams(content) {
   });
 }
 
+// CommonMark refuses to close a `**` run when the bold text ends in punctuation and a
+// Korean particle follows it, so `**탐색(seek)**과` renders its asterisks literally.
+// Emit explicit tags in exactly those spots. Fenced code is left untouched.
+export function repairEmphasisBeforeHangul(content) {
+  let fenced = false;
+  return String(content ?? "").split("\n").map((line) => {
+    if (/^\s*(?:```|~~~)/.test(line)) {
+      fenced = !fenced;
+      return line;
+    }
+    if (fenced) return line;
+    return line.replace(/\*\*(?=\S)([^*\n]+?[^\p{L}\p{N}\s])\*\*(?=[가-힣])/gu, "<strong>$1</strong>");
+  }).join("\n");
+}
+
 export function cleanPublicMarkdown(content) {
   let text = stripLeadingFrontmatter(normalizeText(content));
   text = renderSvgDiagrams(text);
+  text = repairEmphasisBeforeHangul(text);
   text = text.replace(/^####\s+왜 이 그림이 필요한가[\s\S]*?(?=^###\s|^##\s|$)/gim, "");
   text = text.replace(/^>\s*(?:curriculum\s*ref|커리큘럼\s*ref|오늘\s*날짜)\s*:.*\n?/gim, "");
   text = stripSections(text, [

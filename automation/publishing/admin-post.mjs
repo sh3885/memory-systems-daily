@@ -1,3 +1,5 @@
+import { repairEmphasisBeforeHangul } from "./astro-post.mjs";
+
 const categoryMap = new Map([
   ["llm", "LLM"],
   ["ai", "LLM"],
@@ -72,7 +74,7 @@ export function renderAdminMarkdownPost(input = {}) {
   const slug = slugify(input.slug || title);
   const lessonDate = cleanText(input.lessonDate, new Date().toISOString().slice(0, 10));
   const minutes = Number.isFinite(Number(input.minutes)) ? Math.max(1, Math.trunc(Number(input.minutes))) : null;
-  const bodyWithHeading = /^#\s+\S/m.test(body) ? body : `# ${title}\n\n${body}`;
+  const bodyWithHeading = repairEmphasisBeforeHangul(/^#\s+\S/m.test(body) ? body : `# ${title}\n\n${body}`);
   const frontmatter = [
     "---",
     "layout: ../../layouts/PostLayout.astro",

@@ -125,6 +125,43 @@ describe("publication rendering and service", () => {
     assert.doesNotMatch(cleaned, /curriculum ref|<svg|<text|Claim ledger|확정 사실|다음 질문/);
   });
 
+  test("keeps bold readable when a Korean particle follows punctuation", () => {
+    const cleaned = cleanPublicMarkdown([
+      "# 제목",
+      "헤드를 옮기는 **탐색(seek)**과 회전 대기가 있다.",
+      "장치 성능의 **0.27%**에 불과하다.",
+      "**약 359배 차이**다.",
+      "**저널(journal)** 이라고 부른다.",
+      "```",
+      "**코드(block)**은 그대로 둔다",
+      "```",
+    ].join("\n"));
+
+    // These would otherwise render their asterisks literally.
+    assert.match(cleaned, /<strong>탐색\(seek\)<\/strong>과/);
+    assert.match(cleaned, /<strong>0\.27%<\/strong>에/);
+    // Already valid Markdown stays Markdown.
+    assert.match(cleaned, /\*\*약 359배 차이\*\*다/);
+    assert.match(cleaned, /\*\*저널\(journal\)\*\* 이라고/);
+    // Fenced code is never rewritten.
+    assert.match(cleaned, /\*\*코드\(block\)\*\*은 그대로 둔다/);
+  });
+
+  test("subsection headings and separators survive publishing", () => {
+    const cleaned = cleanPublicMarkdown([
+      "# 제목",
+      "## 주제에 맞는 핵심 설명",
+      "",
+      "---",
+      "",
+      "### ▎**왜 배치가 성능을 결정하는가**",
+      "본문",
+    ].join("\n"));
+
+    assert.match(cleaned, /^---$/m);
+    assert.match(cleaned, /### ▎\*\*왜 배치가 성능을 결정하는가\*\*/);
+  });
+
   test("classifies generated posts into blog categories", () => {
     assert.deepEqual(
       taxonomyForPost({

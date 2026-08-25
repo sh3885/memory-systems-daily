@@ -574,6 +574,13 @@ nav a.active {
   font-size: 1.18rem;
 }
 
+.post-content hr {
+  height: 1px;
+  margin: 38px 0 0;
+  border: 0;
+  background: var(--line);
+}
+
 .post-content p,
 .post-content li {
   color: #3f4a54;
