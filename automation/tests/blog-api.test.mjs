@@ -117,6 +117,64 @@ describe("blog API", () => {
     db.close();
   });
 
+  test("keeps generated slugs ASCII so the post stays editable later", () => {
+    const cases = [
+      ["Nand Flash 의 펌웨어 (오프라인 교육)", "nand-flash"],
+      ["attention의 직관", "attention"],
+      ["KV Cache memory pressure", "kv-cache-memory-pressure"],
+    ];
+    for (const [title, expected] of cases) {
+      const post = renderAdminMarkdownPost({ title, category: "LLM", markdown: `# ${title}\n\n본문.` });
+      assert.equal(post.slug, expected);
+      assert.match(post.slug, /^[a-z0-9][a-z0-9-]*$/);
+    }
+    // A title with no Latin at all still produces a usable slug.
+    const korean = renderAdminMarkdownPost({ title: "메모리 계층", category: "Memory", markdown: "# 메모리 계층\n\n본문." });
+    assert.match(korean.slug, /^post-\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test("still accepts an existing non-ASCII slug but rejects path escapes", async () => {
+    const db = new NodeD1Database(schema);
+    const store = new D1BlogStore(db, { now: () => "2026-08-25T03:00:00.000Z" });
+    const requested = [];
+    const api = createBlogApi({
+      env: {
+        PUBLIC_SITE_URL: "https://example.com",
+        ADMIN_API_TOKEN: "secret",
+        GITHUB_APP_ID: "1",
+        GITHUB_APP_PRIVATE_KEY: "key",
+        GITHUB_INSTALLATION_ID: "2",
+        GITHUB_OWNER: "owner",
+        GITHUB_REPOSITORY: "repo",
+        GITHUB_CONTENT_BRANCH: "main",
+      },
+      store,
+      publisher: {
+        async getFile({ path }) {
+          requested.push(path);
+          return { path, content: '---\ntitle: "펌웨어"\n---\n\n# 펌웨어\n\n본문.' };
+        },
+      },
+    });
+
+    const koreanSlug = "nand-flash-의-펌웨어-오프라인-교육";
+    let response = await api(request(`/api/admin/posts/${encodeURIComponent(koreanSlug)}`, {
+      headers: { authorization: "Bearer secret" },
+    }));
+    let body = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(body.post.slug, koreanSlug);
+    assert.equal(requested[0], `src/pages/posts/${koreanSlug}.md`);
+
+    response = await api(request(`/api/admin/posts/${encodeURIComponent("../../secrets")}`, {
+      headers: { authorization: "Bearer secret" },
+    }));
+    body = await response.json();
+    assert.equal(response.status, 400);
+    assert.equal(body.error, "INVALID_POST_SLUG");
+    db.close();
+  });
+
   test("renders admin markdown frontmatter", () => {
     const post = renderAdminMarkdownPost({
       title: "HBM bandwidth note",

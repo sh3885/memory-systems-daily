@@ -110,11 +110,18 @@ function normalizeList(value) {
   return source.map((entry) => String(entry).trim()).filter(Boolean);
 }
 
+// New slugs are ASCII, but posts published before that still need to be editable,
+// so this only rejects what would escape the posts directory.
 function postSlug(value) {
   const slug = String(value ?? "").trim();
-  if (!/^[a-z0-9][a-z0-9-]{0,119}$/i.test(slug)) {
-    throw new BlogApiError("INVALID_POST_SLUG", "Post slug is invalid", 400);
-  }
+  const unsafe = !slug ||
+    slug.length > 120 ||
+    slug.startsWith(".") ||
+    slug.includes("/") ||
+    slug.includes("\\") ||
+    slug.includes("..") ||
+    /[\u0000-\u001f\u007f\s]/.test(slug);
+  if (unsafe) throw new BlogApiError("INVALID_POST_SLUG", "Post slug is invalid", 400);
   return slug;
 }
 

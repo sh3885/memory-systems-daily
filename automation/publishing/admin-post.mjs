@@ -20,15 +20,19 @@ function frontmatterString(value) {
   return JSON.stringify(cleanText(value));
 }
 
+// Slugs become both a URL and a file path, so they stay ASCII. A Korean title
+// keeps whatever Latin it contains and falls back to the date when it has none.
 export function slugify(value) {
   return String(value ?? "")
     .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .normalize("NFKC")
-    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
+    .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-")
-    .slice(0, 80) || `post-${new Date().toISOString().slice(0, 10)}`;
+    .slice(0, 80)
+    .replace(/-+$/g, "") || `post-${new Date().toISOString().slice(0, 10)}`;
 }
 
 export function normalizeAdminCategory(value) {
@@ -115,7 +119,8 @@ export function parseAdminMarkdownPost(content, { slug = "" } = {}) {
   const { values, markdown } = frontmatterValues(content);
   const title = cleanText(values.title, titleFromMarkdown(markdown, slug || "Untitled"));
   return {
-    slug: slugify(slug || title),
+    // Keep the caller's slug verbatim; it names an existing file.
+    slug: slug || slugify(title),
     title,
     description: cleanText(values.description, descriptionFromMarkdown(markdown, title)),
     category: normalizeAdminCategory(values.category),
