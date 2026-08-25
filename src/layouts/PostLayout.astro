@@ -1,5 +1,5 @@
 ---
-import { ArrowLeft, Eye, Tags } from "@lucide/astro";
+import { ArrowLeft, Eye, Maximize2, Tags } from "@lucide/astro";
 import BaseLayout from "./BaseLayout.astro";
 import { categoryById, normalizeCategory, posts, relatedPosts, tagSlug } from "../data/blog";
 
@@ -29,10 +29,15 @@ const related = currentPost ? relatedPosts(currentPost, 4) : [];
 ---
 
 <BaseLayout title={`${title} | Memory Systems Daily`} description={description}>
-  <article class="post-page">
+  <article class="post-page" data-post-page>
     <header class="post-header">
       <div class="shell post-header-inner">
-        <a class="back-link" href={category.path}><ArrowLeft size={17} />{category.label} 목록</a>
+        <div class="post-header-top">
+          <a class="back-link" href={category.path}><ArrowLeft size={17} />{category.label} 목록</a>
+          <button class="post-view-toggle" type="button" data-wide-toggle aria-pressed="false">
+            <Maximize2 size={15} /><span data-wide-label>넓게 보기</span>
+          </button>
+        </div>
         <div class="post-kicker">
           <span>{category.label}</span>
           {lessonDate && <span>{lessonDate}</span>}
@@ -76,4 +81,5 @@ const related = currentPost ? relatedPosts(currentPost, 4) : [];
       </aside>
     </div>
   </article>
+  <script is:inline src="/scripts/post-view.js" defer></script>
 </BaseLayout>
