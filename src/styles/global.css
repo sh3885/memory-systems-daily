@@ -781,6 +781,31 @@ nav a.active {
   display: none;
 }
 
+.admin-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 55;
+  max-width: min(430px, calc(100vw - 40px));
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 16px 38px rgba(21, 31, 46, 0.18);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.admin-toast[data-tone="success"] {
+  border-left-color: var(--memory);
+}
+
+.admin-toast[data-tone="error"] {
+  border-left-color: var(--danger);
+}
+
 .admin-status {
   margin: 14px 0 0;
   padding: 10px 12px;

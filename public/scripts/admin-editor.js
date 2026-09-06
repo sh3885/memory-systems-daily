@@ -27,7 +27,7 @@
   }
 
   async function loadExistingPost() {
-    admin.setStatus("글을 불러오는 중...");
+    admin.setStatus("글을 불러오는 중...", undefined, { toast: false });
     try {
       const data = await admin.request(`/api/admin/posts/${encodeURIComponent(slug)}`);
       const post = data.post;
@@ -37,7 +37,7 @@
       form.elements.category.value = post.category || "System";
       form.elements.tags.value = (post.tags || []).join(", ");
       form.elements.markdown.value = post.markdown || "";
-      admin.setStatus("불러왔습니다. 저장하면 같은 URL로 반영됩니다.", "success");
+      admin.setStatus("불러왔습니다. 저장하면 같은 URL로 반영됩니다.", "success", { toast: false });
       updatePreview();
     } catch (error) {
       admin.setStatus(`글을 불러오지 못했습니다: ${error.message}`, "error");
@@ -50,8 +50,12 @@
     payload.tags = csv(payload.tags);
     if (mode === "edit") payload.slug = slug;
 
-    if (submitButton) submitButton.disabled = true;
-    admin.setStatus(mode === "edit" ? "저장 중..." : "발행 중...");
+    const restoreLabel = submitButton?.innerHTML;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = mode === "edit" ? "저장 중…" : "발행 중…";
+    }
+    admin.setStatus(mode === "edit" ? "저장 중… GitHub에 반영하고 있어." : "발행 중… GitHub에 반영하고 있어.");
     try {
       const data = await admin.request(
         mode === "edit" ? `/api/admin/posts/${encodeURIComponent(slug)}` : "/api/admin/posts",
@@ -65,7 +69,10 @@
     } catch (error) {
       admin.setStatus(`${mode === "edit" ? "저장" : "발행"} 실패: ${error.message}`, "error");
     } finally {
-      if (submitButton) submitButton.disabled = false;
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.innerHTML = restoreLabel;
+      }
     }
   });
 

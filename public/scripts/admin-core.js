@@ -43,12 +43,39 @@
     return data;
   }
 
-  function setStatus(message, tone) {
+  let toast = null;
+  let toastTimer = null;
+
+  function removeToast() {
+    toast?.remove();
+    toast = null;
+  }
+
+  // The inline status sits above a tall editor, so it is off screen exactly when
+  // someone presses save. This keeps the same message in view wherever they are.
+  function showToast(message, tone) {
+    window.clearTimeout(toastTimer);
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "admin-toast";
+      toast.setAttribute("role", "status");
+      document.body.append(toast);
+    }
+    toast.textContent = message;
+    if (tone) toast.dataset.tone = tone;
+    else delete toast.dataset.tone;
+    if (tone !== "error") toastTimer = window.setTimeout(removeToast, 6000);
+  }
+
+  function setStatus(message, tone, options = {}) {
     const node = document.querySelector("[data-admin-status]");
-    if (!node) return;
-    node.textContent = message;
-    if (tone) node.dataset.tone = tone;
-    else delete node.dataset.tone;
+    if (node) {
+      node.textContent = message;
+      if (tone) node.dataset.tone = tone;
+      else delete node.dataset.tone;
+    }
+    if (options.toast === false) removeToast();
+    else showToast(message, tone);
   }
 
   async function sha256Hex(value) {
