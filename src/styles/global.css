@@ -1185,4 +1185,15 @@ footer p {
   .form-row {
     grid-template-columns: 1fr;
   }
+
+  /* Wide tables scroll inside themselves instead of widening the page. */
+  .post-content table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .post-content th,
+  .post-content td {
+    padding: 8px 6px;
+  }
 }

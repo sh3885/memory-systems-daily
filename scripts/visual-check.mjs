@@ -6,7 +6,13 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const distDir = join(root, "dist");
-const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+// VISUAL_BROWSER_PATH overrides the per-platform default Chromium browser.
+const defaultBrowserPaths = {
+  win32: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  darwin: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  linux: "/usr/bin/google-chrome",
+};
+const browserPath = process.env.VISUAL_BROWSER_PATH || defaultBrowserPaths[process.platform];
 const adminPassword = process.env.VISUAL_ADMIN_PASSWORD ?? "";
 const screenshotEvery = process.env.VISUAL_SCREENSHOT_ALL === "1";
 
@@ -82,7 +88,7 @@ if (baseUrl) {
 }
 
 await mkdir(join(root, "artifacts/screenshots"), { recursive: true });
-const browser = await chromium.launch({ executablePath: edgePath, headless: true });
+const browser = await chromium.launch({ executablePath: browserPath, headless: true });
 const failures = [];
 
 // Representative pages worth an image; every route is still functionally checked.
