@@ -108,7 +108,8 @@ export const curriculum: CurriculumPart[] = [
     id: "P2",
     title: "토큰 하나를 만들 때 메모리에서 일어나는 일",
     question: "LLM이 토큰을 하나 만들 때 메모리에서는 무엇을 얼마나 읽고, 왜 그것이 병목인가?",
-    status: "in-progress",
+    status: "published",
+    slugs: ["2026-11-02-llm-memory-per-token"],
     sections: [
       "multi-head와 GQA: K, V는 왜 8,192가 아니라 1,024인가?",
       "prefill과 decode: 같은 계산인데 왜 병목이 다른가?",
